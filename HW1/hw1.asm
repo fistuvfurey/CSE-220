@@ -191,6 +191,9 @@ start_coding_here:
 		li		$t3, 'S'		# $t3 = 'S'
 		beq		$t0, $t3, operation_S	# if $t0 == $t1 then operation_S
 		
+		li		$t3, 'T'		# $t3 = 'T'
+		beq		$t0, $t3, operation_T	# if $t0 == $t3 then operation_T
+		
 		
 		
 		operation_O:
@@ -204,7 +207,7 @@ start_coding_here:
 		j		part3				# jump to part3
 		
 		operation_S:
-			# We need bits 7 - 11 inclusive, so we need to mask the first 6 bits and then srl by 21. 
+			# We need bits 7-11 inclusive, so we need to mask the first 6 bits and then srl by 21. 
 			lui $s5, 0x03FF
 			ori $s5, $s5, 0xFFFF # $s5 = 0x03FFFFFF
 			and $s4, $s3, $s5 # mask the first 6 bits and save that in $s4
@@ -213,8 +216,18 @@ start_coding_here:
 			move $a0, $s4
 			li $v0, 1
 			syscall
-	
-	
+		j		part3				# jump to part3
+		
+		operation_T: 
+			# We need bits 12-16 inclusive, so we need to mask the first 11 bits and then srl by 16.
+			lui $s5, 0x001F
+			ori $s5, $s5, 0xFFFF # $s5 = 0x001FFFFF
+			and $s4, $s3, $s5 # mask the first 11 bits
+			srl $s4, $s4, 16 # srl by 16
+			# Print the decimal int. 
+			move $a0, $s4
+			li $v0, 1
+			syscall
 	
 	
 	
