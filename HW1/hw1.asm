@@ -186,17 +186,41 @@ start_coding_here:
 		# Here, we will check which operation to perform based on the first arg.
 		# $t0 = first char of arg1
 		li		$t3, 'O'		# $t3 = 'O'
-		beq		$t0, $t1, operation_O	# if $t0 == $t1 then operation_O
+		beq		$t0, $t3, operation_O	# if $t0 == $t3 then operation_O
+
+		li		$t3, 'S'		# $t3 = 'S'
+		beq		$t0, $t3, operation_S	# if $t0 == $t1 then operation_S
+		
+		
 		
 		operation_O:
-		# We need only the 6 msb so we will shift $s3 right logical by 26.
-		addi	$s4, $0, 0			# $s4 = $0 + 0 (initialize $s4 to 0)
-		srl $s4, $s3, 26
-		# Print decimal integer in $s4.
-		move $a0, $s4
-		li $v0, 1
-		syscall
-
+			# We need only the 6 msb so we will shift $s3 right logical by 26.
+			addi	$s4, $0, 0			# $s4 = $0 + 0 (initialize $s4 to 0)
+			srl $s4, $s3, 26
+			# Print decimal integer in $s4.
+			move $a0, $s4
+			li $v0, 1
+			syscall
+		j		part3				# jump to part3
+		
+		operation_S:
+			# We need bits 7 - 11 inclusive, so we need to mask the first 6 bits and then srl by 21. 
+			lui $s5, 0x03FF
+			ori $s5, $s5, 0xFFFF # $s5 = 0x03FFFFFF
+			and $s4, $s3, $s5 # mask the first 6 bits and save that in $s4
+			srl $s4, $s4, 21 # srl by 21
+			# Print decimal integer  in $s4.
+			move $a0, $s4
+			li $v0, 1
+			syscall
+	
+	
+	
+	
+	
+	
+	part3:
+	
 	# Terminate the program
 	li $v0, 10
 	syscall
