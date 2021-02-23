@@ -204,6 +204,9 @@ start_coding_here:
 			li		$t3, 'E'		# $t3 = 'E'
 			beq		$t0, $t3, part3	# if $t0 == $t3 then part3
 			
+			li		$t3, 'C'		# $t3 = 'C'
+			beq		$t0, $t3, part4	# if $t0 == $t3 then part4
+			
 		
 		
 		operation_O:
@@ -300,11 +303,42 @@ start_coding_here:
 			la $a0, OddMsg
 			li $v0, 4
 			syscall
-			
+
 		terminate:
 			li $v0, 10
 			syscall
 	
+	part4:
+		# $s3 contains the binary representation of the hex string. 
+		
+		li		$t3, 0		# $t3 = 0 (# of 1s) 
+		while_binary_not_zero:
+			# Check to see if the lsb is a 1.
+			andi $s4, $s3, 1 # $s4 = lsb of the binary representation
+			
+			li		$t4, 1		# $t4 = 1
+			beq		$s4, $t4, is_1	# if $t0 == $t1 then is_1
+			# If we are here, then the lsb isn't a 1. 
+			j		shift_bits_right_one				# jump to shift_bits_right_one
+			
+			is_1:
+				addi	$t3, $t3, 1			# $t3 = $t3 + 1 (increment 1s counter)
+			
+			shift_bits_right_one:
+				# Shift bits to the right by one to get the next bit in the lsb place.
+				srl $s3, $s3, 1
+			 
+			bgtz $s3, while_binary_not_zero # If $s3 > 0, then loop again
+		# ***end of loop***
+		
+		# Print 1s count. 
+		move $a0, $t3
+		li $v0, 1
+		syscall
+		# Terminate.
+		li $v0, 10
+		syscall
+
 	# Terminate the program
 	li $v0, 10
 	syscall
