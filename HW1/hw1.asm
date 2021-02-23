@@ -177,28 +177,33 @@ start_coding_here:
 		li		$t4, 55		# $t4 = 55
 		sub	$t1, $t1, $t4		# $t1 = $t1 - $t4 (get binary representation of hex digit)
 		add		$s3, $s3, $t1		# $s3 = $s3 + $t1 (add binary stored in $t1 to $s3)
-		j		here				# jump to here
+		# If we are here, the last hex digit is a letter ('A'-'F'), so skip last_is_num label. 
+		j		check_operation				# jump to check_operation
 		
 		last_is_num:
 			li		$t4, 48		# $t4 = 48
 			sub	$t1, $t1, $t4			# $t1 = $t1 - $t4 (get binary representation of hex digit)
 			add		$s3, $s3, $t1		# $s3 = $s3 + $t1 (add binary stored in $t1 to $s3)
 		# Now, $s3 contains the binary representation of the hex arg. 
-		here: 
-		# Here, we will check which operation to perform based on the first arg.
-		# $t0 = first char of arg1
-		li		$t3, 'O'		# $t3 = 'O'
-		beq		$t0, $t3, operation_O	# if $t0 == $t3 then operation_O
 
-		li		$t3, 'S'		# $t3 = 'S'
-		beq		$t0, $t3, operation_S	# if $t0 == $t1 then operation_S
-		
-		li		$t3, 'T'		# $t3 = 'T'
-		beq		$t0, $t3, operation_T	# if $t0 == $t3 then operation_T
-		
-		li		$t3, 'I'		# $t3 = 'I'
-		beq		$t0, $t3, operation_I	# if $t0 == $t3 then operation_I
-		
+		check_operation: 
+			# Here, we will check which operation to perform based on the first arg.
+			# $t0 = first char of arg1
+			li		$t3, 'O'		# $t3 = 'O'
+			beq		$t0, $t3, operation_O	# if $t0 == $t3 then operation_O
+
+			li		$t3, 'S'		# $t3 = 'S'
+			beq		$t0, $t3, operation_S	# if $t0 == $t1 then operation_S
+			
+			li		$t3, 'T'		# $t3 = 'T'
+			beq		$t0, $t3, operation_T	# if $t0 == $t3 then operation_T
+			
+			li		$t3, 'I'		# $t3 = 'I'
+			beq		$t0, $t3, operation_I	# if $t0 == $t3 then operation_I
+
+			li		$t3, 'E'		# $t3 = 'E'
+			beq		$t0, $t3, part3	# if $t0 == $t3 then part3
+			
 		
 		
 		operation_O:
@@ -209,8 +214,10 @@ start_coding_here:
 			move $a0, $s4
 			li $v0, 1
 			syscall
-		j		part3				# jump to part3
-		
+			# Terminate the program.
+			li $v0, 10
+			syscall
+
 		operation_S:
 			# We need bits 7-11 inclusive, so we need to mask the first 6 bits and then srl by 21. 
 			lui $s5, 0x03FF
@@ -221,7 +228,9 @@ start_coding_here:
 			move $a0, $s4
 			li $v0, 1
 			syscall
-		j		part3				# jump to part3
+			# Terminate the program.
+			li $v0, 10
+			syscall
 		
 		operation_T: 
 			# We need bits 12-16 inclusive, so we need to mask the first 11 bits and then srl by 16.
@@ -233,44 +242,68 @@ start_coding_here:
 			move $a0, $s4
 			li $v0, 1
 			syscall
-		j		part3				# jump to part3
+			# Terminate the program.
+			li $v0, 10
+			syscall
 		
 		operation_I:
-		# We need to find the value of the MSB to determine whether or not the value is positive or negative.
-		# We then need to use XOR to flip all the bits and then add 1 to get the absolute decimal value of the immediate.
+			# We need to find the value of the MSB to determine whether or not the value is positive or negative.
+			# We then need to use XOR to flip all the bits and then add 1 to get the absolute decimal value of the immediate.
+			# First, to find the MSB of the immediate, we need to mask the first 16 bits. 
+			li $s5, 0x0000FFFF
+			and $s4, $s3, $s5 # mask the first 16 bits
 
-		# First, to find the MSB of the immediate, we need to mask the first 16 bits. 
-		li $s5, 0x0000FFFF
-		and $s4, $s3, $s5 # mask the first 16 bits
+			# Now, we will srl by 15 to move the MSB to the one's place. If the decimal value in the destination register is 1,
+			# then it is a negative number.
+			srl $s6, $s4, 15
 
-		# Now, we will srl by 15 to move the MSB to the one's place. If the decimal value in the destination register is 1,
-		# then it is a negative number.
-		srl $s6, $s4, 15
+			# Convert from 2's complement to decimal (flip all the bits and add 1)
+			li $s5, 0xFFFF # $s5 = 0x0000FFFF
+			xor $s4, $s4, $s5 # flip all bits in $s4
+			addi	$s4, $s4, 1			# $s4 = $s4 + 1
+			# Now, $s4 contains the absolute decimal value of the immediate.
 
-		# Convert from 2's complement to decimal (flip all the bits and add 1)
-		li $s5, 0xFFFF # $s5 = 0x0000FFFF
-		xor $s4, $s4, $s5 # flip all bits in $s4
-		addi	$s4, $s4, 1			# $s4 = $s4 + 1
-		# Now, $s4 contains the absolute decimal value of the immediate.
+			# Check to see if $s6 is 1.
+			li		$t3, 1		# $t3 = 1
+			beq		$s6, $t3, is_neg	# if $s6 == $t3 then is_neg
+			# If we are here, it is a positive value, jump to print_immediate.
+			j		print_immediate				# jump to print_immediate
+			
+			is_neg:
+				li		$t3, -1		# $t3 = -1
+				mul $s4, $s4, $t3 # negate $s4
 
-		# Check to see if $s6 is 1.
-		li		$t3, 1		# $t3 = 1
-		beq		$s6, $t3, is_neg	# if $s6 == $t3 then is_neg
-		# If we are here, it is a positive value, jump to print_immediate.
-		j		print_immediate				# jump to print_immediate
-		
-		is_neg:
-			li		$t3, -1		# $t3 = -1
-			mul $s4, $s4, $t3 # negate $s4
-
-		print_immediate:
-			move $a0, $s4
-			li $v0, 1
+			print_immediate:
+				move $a0, $s4
+				li $v0, 1
+				syscall
+			# Terminate the program.
+			li $v0, 10
 			syscall
 	
 	
-	
 	part3:
+		# $s3 contains the binary representation of the hex string.
+		# Let's mask all the bits except the lsb and check to see if the lsb is a 1 or a 0 (even or odd).
+		li $s5, 0x00000001
+		and $s4, $s3, $s5 # mask all but the lsb
+
+		li		$t3, 1		# $t3 = 1
+		beq		$s4, $t3, odd	# if $s4 == $t3 then odd
+		# If we are here, then it is even.
+		la $a0, EvenMsg
+		li $v0, 4
+		syscall
+		j		terminate				# jump to terminate
+		
+		odd:
+			la $a0, OddMsg
+			li $v0, 4
+			syscall
+			
+		terminate:
+			li $v0, 10
+			syscall
 	
 	# Terminate the program
 	li $v0, 10
