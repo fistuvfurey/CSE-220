@@ -207,7 +207,9 @@ start_coding_here:
 			li		$t3, 'C'		# $t3 = 'C'
 			beq		$t0, $t3, part4	# if $t0 == $t3 then part4
 			
-		
+			li		$t3, 'X'		# $t3 = 'X'
+			beq		$t0, $t3, operation_X	# if $t0 == $t3 then operation_X
+			
 		
 		operation_O:
 			# We need only the 6 msb so we will shift $s3 right logical by 26.
@@ -310,7 +312,6 @@ start_coding_here:
 	
 	part4:
 		# $s3 contains the binary representation of the hex string. 
-		
 		li		$t3, 0		# $t3 = 0 (# of 1s) 
 		while_binary_not_zero:
 			# Check to see if the lsb is a 1.
@@ -336,6 +337,25 @@ start_coding_here:
 		li $v0, 1
 		syscall
 		# Terminate.
+		li $v0, 10
+		syscall
+
+	operation_X:
+		# First, mask the msb of the binary representatation. 
+		lui $s5, 0x7FFF
+		ori $s5, $s5, 0xFFFF # $s5 = 0x7FFFFFFF
+		and $s3, $s3, $s5 # mask the msb
+		# Now, we want to srl by 23 bits.
+		srl $s3, $s3, 23 
+		# $s3 = the binary representation of the exponent.
+		# Since the exponent is stored in 127-excess form, we need to subtract 127 to obtain the actual decimal value.
+		li		$t3, 127 		# $t3 = 127
+		sub	$s3, $s3, $t3			# $s3 = $s3 - $t3
+		# Print the decimal value of the exponent.
+		move $a0, $s3
+		li $v0, 1
+		syscall
+		# Terminate the program.
 		li $v0, 10
 		syscall
 
