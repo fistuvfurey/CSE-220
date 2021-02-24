@@ -3,7 +3,6 @@ ErrMsg: .asciiz "Invalid Argument"
 WrongArgMsg: .asciiz "You must provide exactly two arguments"
 EvenMsg: .asciiz "Even"
 OddMsg: .asciiz "Odd"
-debugMsg: .asciiz "part2"
 
 arg1_addr : .word 0
 arg2_addr : .word 0
@@ -210,7 +209,9 @@ start_coding_here:
 			li		$t3, 'X'		# $t3 = 'X'
 			beq		$t0, $t3, operation_X	# if $t0 == $t3 then operation_X
 			
-		
+			li		$t3, 'M'		# $t3 = 'M'
+			beq		$t0, $t3, operation_M	# if $t0 == $t3 then operation_M
+			
 		operation_O:
 			# We need only the 6 msb so we will shift $s3 right logical by 26.
 			addi	$s4, $0, 0			# $s4 = $0 + 0 (initialize $s4 to 0)
@@ -252,36 +253,16 @@ start_coding_here:
 			syscall
 		
 		operation_I:
-			# We need to find the value of the MSB to determine whether or not the value is positive or negative.
-			# We then need to use XOR to flip all the bits and then add 1 to get the absolute decimal value of the immediate.
-			# First, to find the MSB of the immediate, we need to mask the first 16 bits. 
-			li $s5, 0x0000FFFF
-			and $s4, $s3, $s5 # mask the first 16 bits
+			# We need to sll by 16 to get rid of the leftmost 16 bits.
+			sll $s3, $s3, 16
 
-			# Now, we will srl by 15 to move the MSB to the one's place. If the decimal value in the destination register is 1,
-			# then it is a negative number.
-			srl $s6, $s4, 15
+			# Next, we need to sra by 16 bits to put the bits we want back in the right place.
+			sra $s3, $s3, 16
 
-			# Convert from 2's complement to decimal (flip all the bits and add 1)
-			li $s5, 0xFFFF # $s5 = 0x0000FFFF
-			xor $s4, $s4, $s5 # flip all bits in $s4
-			addi	$s4, $s4, 1			# $s4 = $s4 + 1
-			# Now, $s4 contains the absolute decimal value of the immediate.
-
-			# Check to see if $s6 is 1.
-			li		$t3, 1		# $t3 = 1
-			beq		$s6, $t3, is_neg	# if $s6 == $t3 then is_neg
-			# If we are here, it is a positive value, jump to print_immediate.
-			j		print_immediate				# jump to print_immediate
-			
-			is_neg:
-				li		$t3, -1		# $t3 = -1
-				mul $s4, $s4, $t3 # negate $s4
-
-			print_immediate:
-				move $a0, $s4
-				li $v0, 1
-				syscall
+			# Now, $s4 contains the absolute decimal value of the immediate.		
+			move $a0, $s3
+			li $v0, 1
+			syscall
 			# Terminate the program.
 			li $v0, 10
 			syscall
@@ -359,7 +340,13 @@ start_coding_here:
 		li $v0, 10
 		syscall
 
-	# Terminate the program
-	li $v0, 10
-	syscall
+	operation_M:
+		# We need the rightmost 23 bits for the mantissa, so we need to mask the leftmost 9 bits.
+		lui $s5, 0x007F
+		ori $s5, $s5, 0xFFFF # $s5 = 0x007FFFFF
+		and $s3, $s3, $s5 # mask the leftmost 9 bits
+		# Now, $s3 holds the binary representation of the mantissa.
+		# Terminate the program
+		li $v0, 10
+		syscall
 
