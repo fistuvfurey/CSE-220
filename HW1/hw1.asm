@@ -3,6 +3,7 @@ ErrMsg: .asciiz "Invalid Argument"
 WrongArgMsg: .asciiz "You must provide exactly two arguments"
 EvenMsg: .asciiz "Even"
 OddMsg: .asciiz "Odd"
+mantissa: .asciiz "1."
 
 arg1_addr : .word 0
 arg2_addr : .word 0
@@ -341,11 +342,18 @@ start_coding_here:
 		syscall
 
 	operation_M:
-		# We need the rightmost 23 bits for the mantissa, so we need to mask the leftmost 9 bits.
-		lui $s5, 0x007F
-		ori $s5, $s5, 0xFFFF # $s5 = 0x007FFFFF
-		and $s3, $s3, $s5 # mask the leftmost 9 bits
-		# Now, $s3 holds the binary representation of the mantissa.
+		# $s3 holds the binary representation of the hex string. 
+		# We need to sll by 9 bits to append the 9 zeros and to get rid of the first 9 bits which we don't need.
+		sll $s3, $s3, 9
+		# Now, $s3 holds the binary representation of the mantissa with 9 appended zeros.\
+		# Print the string "1.". 
+		la $a0, mantissa
+		li $v0, 4
+		syscall
+		# Print the binary representation of the mantissa. 
+		move $a0, $s3
+		li $v0, 35
+		syscall
 		# Terminate the program
 		li $v0, 10
 		syscall
