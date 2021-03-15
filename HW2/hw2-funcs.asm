@@ -25,12 +25,23 @@ is_digit:
 
 stack_push:
   # $a0 denotes the integer element to be pushed onto the stack.
-  # $a1 is an int that indicates the top of the stack.
+  # $a1 is tp, an int that indicates the top of the stack.
   # $a2 is the int base address of the stack.
+  li		$t1, 2004		# $t1 = 2004 (2004 is the offset for 500 elements in the stack)
+  beq		$a1, $t1, max_elements_reached	# if $a1 == $t1 then max_elements_reached
+  # If we are here then the stack isn't full. We can continue with pushing the new element. 
   add	$t0, $a2, $a1			# $t0 = $a2 + $a1 ($t0 = address of the top of the stack)
   sw		$a0, 0($t0)		# store the int element at the top of the stack
   addi	$v0, $a1, 4			# $v0 = $a1 + 4 (increment the top of the stack to return) 
-  jr $ra
+  j		return_tp				# jump to return_tp
+  max_elements_reached:
+    la		$a0, BadToken		# load error message string
+    li		$v0, 4		# $v0 = 4
+    syscall # print error message
+    li		$v0, 10		# $v0 = 10
+    syscall # terminate
+  return_tp:  
+    jr $ra
 
 stack_peek:
   jr $ra
