@@ -57,8 +57,10 @@ valid_ops:
 op_precedence:
   # $a0 already contains the operator arg we want to set a precedence to. 
   # First we want to check to see if our arg is a valid operator by calling valid_ops.
-  addi	$sp, $sp, -4			# $sp = $sp + -4 (allocate space on the stack to preserve $ra)
+  addi	$sp, $sp, -8			# $sp = $sp + -8 (allocate space on the stack)
   sw		$ra, 0($sp)		# store $ra onto the stack
+  sw		$s0, 4($sp)		# store $s0 onto the stack
+  move 	$s0, $a0		# $s0 = $a0 (save arg into $s0)
   jal		valid_ops				# jump to valid_ops and save position to $ra
   add		$t0, $0, $v0		# $t0 = $0 + $v0 (save return value of valid_ops into $t0)
   # The return value of valid_ops will be 0 if the operator is invlalid.
@@ -67,13 +69,13 @@ op_precedence:
   # If we are here, then the operator is valid and we should continue.
   # Check to see which operator we have and branch to proper precedence label.
   li		$t1, '+'		# $t1 = '+'
-  beq		$a0, $t1, precedence1	# if $a0 == $t1 then precedence1
+  beq		$s0, $t1, precedence1	# if $a0 == $t1 then precedence1
   li		$t1, '-'		# $t1 = '-'
-  beq		$a0, $t1, precedence1	# if $a0 == $t1 then precedence1
+  beq		$s0, $t1, precedence1	# if $a0 == $t1 then precedence1
   li		$t1, '*'		# $t1 = '*'
-  beq		$a0, $t1, precedence2	# if $a0 == $t1 then precedence2
+  beq		$s0, $t1, precedence2	# if $a0 == $t1 then precedence2
   li		$t1, '/'		# $t1 = '/'
-  beq		$a0, $t1, precedence2	# if $a0 == $t1 then precedence2
+  beq		$s0, $t1, precedence2	# if $a0 == $t1 then precedence2
   # We should never be here. 
   precedence1:
     addi	$v0, $0, 1			# $v0 = $0 + 1 (return precedence 1)
@@ -89,7 +91,8 @@ op_precedence:
     syscall # terminate
   return_precedence:
     lw		$ra, 0($sp)		# load return address
-    addi	$sp, $sp, 4			# $sp = $sp + 4 (reallocate space back on to the stack)
+    lw		$s0, 4($sp)		# load back in $s0
+    addi	$sp, $sp, 8			# $sp = $sp + 8 (reallocate space back on to the stack)
     jr $ra
 
 apply_bop:
