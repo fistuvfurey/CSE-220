@@ -36,7 +36,23 @@ is_stack_empty:
   jr $ra
 
 valid_ops:
-  jr $ra
+  # $a0 contains the arg of this function. 
+  # Check to see if $a0 holds a valid operator.
+  li		$t1, '+'		# $t1 = '+'
+  beq		$a0, $t1, valid_op	# if $a0 == $t1 then valid_op
+  li		$t1, '-'		# $t1 = '-'
+  beq		$a0, $t1, valid_op	# if $a0 == $t1 then valid_op
+  li		$t1, '*'		# $t1 = '*'
+  beq		$a0, $t1, valid_op	# if $a0 == $t1 then valid_op
+  li		$t1, '/'		# $t1 = '/'
+  beq		$a0, $t1, valid_op	# if $a0 == $t1 then valid_op
+  # If we are here, then the arg was invalid.
+  addi	$v0, $0, 0			# $v0 = $0 + 0 (return 0 since the arg was invalid)
+  j		skip_valid_op				# jump to skip_valid_op
+  valid_op:
+    addi	$v0, $0, 1			# $v0 = $0 + 1 (return 1 since the arg was a valid operator)
+  skip_valid_op:
+    jr $ra
 
 op_precedence:
   jr $ra

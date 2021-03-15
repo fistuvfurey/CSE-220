@@ -12,8 +12,13 @@ op_stack : .word 0
 .text
 .globl main
 main:
-
   # add code to call and test valid_op function
+  addi	$a0, $0, 'h'			# $a0 = $0 + '+'
+  jal		valid_ops				# jump to valid_ops and save position to $ra
+  add		$s0, $0, $v0		# $s0 = $0 + $v0 (save return value into $s0)
+  
+  
+  
 
 end:
   # Terminates the program
