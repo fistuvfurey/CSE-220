@@ -55,7 +55,42 @@ valid_ops:
     jr $ra
 
 op_precedence:
-  jr $ra
+  # $a0 already contains the operator arg we want to set a precedence to. 
+  # First we want to check to see if our arg is a valid operator by calling valid_ops.
+  addi	$sp, $sp, -4			# $sp = $sp + -4 (allocate space on the stack to preserve $ra)
+  sw		$ra, 0($sp)		# store $ra onto the stack
+  jal		valid_ops				# jump to valid_ops and save position to $ra
+  add		$t0, $0, $v0		# $t0 = $0 + $v0 (save return value of valid_ops into $t0)
+  # The return value of valid_ops will be 0 if the operator is invlalid.
+  li		$t1, 0		# $t1 = 0
+  beq		$t0, $t1, invalid_op	# if $t0 == $t1 then invalid_op
+  # If we are here, then the operator is valid and we should continue.
+  # Check to see which operator we have and branch to proper precedence label.
+  li		$t1, '+'		# $t1 = '+'
+  beq		$a0, $t1, precedence1	# if $a0 == $t1 then precedence1
+  li		$t1, '-'		# $t1 = '-'
+  beq		$a0, $t1, precedence1	# if $a0 == $t1 then precedence1
+  li		$t1, '*'		# $t1 = '*'
+  beq		$a0, $t1, precedence2	# if $a0 == $t1 then precedence2
+  li		$t1, '/'		# $t1 = '/'
+  beq		$a0, $t1, precedence2	# if $a0 == $t1 then precedence2
+  # We should never be here. 
+  precedence1:
+    addi	$v0, $0, 1			# $v0 = $0 + 1 (return precedence 1)
+    j		return_precedence				# jump to return_precedence    
+  precedence2:
+    addi	$v0, $0, 2			# $v0 = $0 + 2 (return precedence 2)
+    j		return_precedence				# jump to return_precedence
+  invalid_op:
+    la		$a0, BadToken		# load error message
+    li		$v0, 4		# $v0 = 4
+    syscall # print error message
+    li		$v0, 10		# $v0 = 10
+    syscall # terminate
+  return_precedence:
+    lw		$ra, 0($sp)		# load return address
+    addi	$sp, $sp, 4			# $sp = $sp + 4 (reallocate space back on to the stack)
+    jr $ra
 
 apply_bop:
   jr $ra

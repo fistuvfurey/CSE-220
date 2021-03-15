@@ -12,8 +12,13 @@ op_stack : .word 0
 .text
 .globl main
 main:
-
   # add code to call and test op_precedence function
+  addi	$a0, $0, '^'			# $a0 = $0 + '+'
+  jal		op_precedence				# jump to op_precedence and save position to $ra
+  add		$s0, $v0, $0		# $s0 = $v0 + $0 (save return value of op_precedence into $s0)
+  
+  
+  
 
 end:
   # Terminates the program
