@@ -96,4 +96,50 @@ op_precedence:
     jr $ra
 
 apply_bop:
-  jr $ra
+  # $a0 contains first integer operand
+  # $a1 contains the char operation
+  # $a2 contains the second integer operand
+  li		$t0, '+'		# $t0 = '+'
+  beq		$t0, $a1, addition	# if $t0 == $a1 then addition
+  li		$t0, '-'		# $t0 = '-'
+  beq		$t0, $a1, subtraction	# if $t0 == $a1 then subtraction
+  li		$t0, '*'		# $t0 = '*'
+  beq		$t0, $a1, multiplication	# if $t0 == $a1 then multiplication
+  li		$t0, '/'		# $t0 = '/'
+  beq		$t0, $a1, division	# if $t0 == $a1 then division
+  # We should never be here. 
+  addition:
+    add		$v0, $a0, $a2		# $v0 = $a0 + $a2
+    j		return_op_result				# jump to return_op_result
+  subtraction:
+    sub		$v0, $a0, $a2		# $v0 = $a0 - $a2
+    j		return_op_result				# jump to return_op_result
+  multiplication:
+    mult	$a0, $a2			# $a0 * $a2 = Hi and Lo registers
+    mflo	$v0					# copy Lo to $v0
+    j		return_op_result				# jump to return_op_result
+  division:
+    # First, make sure we aren't trying to divde by 0.
+    beq		$a2, $0, division_by_zero_error	# if $a2 == $0 then division_by_zero_error
+    
+    div		$a0, $a2			# $a0 / $a2
+    mflo	$t1				# $t1 = floor($a0 / $a2) 
+    # Now check to see if either of the operands are negative.
+    blt		$a0, $0, op_is_negative	# if $a0 < $0 then op_is_negative
+    blt		$a2, $0, op_is_negative	# if $a2 < $0 then op_is_negative
+    # If we are here, then none of the operators are negative and the result of the floor division is the low register.
+    move 	$v0, $t1		# $v0 = $t1
+    j		return_op_result				# jump to return_op_result
+    op_is_negative:
+      # If we are here, the result of the floor division is the lo register - 1.
+      # $t1 contains the value from the lo register. 
+      addi	$v0, $t1, -1			# $v0 = $t1 - 1 
+      j		return_op_result				# jump to return_op_result
+    division_by_zero_error:
+      la		$a0, ApplyOpError		# error message to be printed
+      li		$v0, 4		# $v0 = 4
+      syscall # print the error message
+      li		$v0, 10		# $v0 = 10
+      syscall # terminate   
+  return_op_result:
+    jr $ra
