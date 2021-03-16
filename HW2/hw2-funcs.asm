@@ -44,12 +44,33 @@ stack_push:
     jr $ra
 
 stack_peek:
+  # $a0 is tp, is the offset for the top element of the stack and can be used to read an element at the top
+  # of the stack.
+  # $a1 is the base address of the stack.
+  # First, we want to check to see if the stack is empty by calling is_stack_empty
+  addi	$sp, $sp, -12			# $sp = $sp + -12 (allocate space)
+  sw		$ra, 0($sp)		# store the return address
+  sw		$s0, 4($sp)		
+  sw		$s1, 8($sp)		 
+  move 	$s0, $a0		# $s0 = $a0 ($s0 = tp)
+  move 	$s1, $a1		# $s1 = $a1 ($s1 = base address of stack)
+  jal		is_stack_empty				# jump to is_stack_empty and save position to $ra
+  li		$t0, 1		# $t0 = 1
+  beq		$v0, $t0, empty_stack_error	# if $v0 == $t0 then empty_stack_error
+  # If we are here, then the stack isn't empty and we can continue peeking.
+  add		$t1, $s0, $s1		# $t1 = $s0 + $s1 ($t1 = the address of the top element of the stack)
+  lw		$v0, 0($t1)		# load the top element into $v1 to return 
+  # postamble
+  lw		$ra, 0($sp)		# load back return address
+  lw		$s0, 4($sp)		
+  lw		$s1, 8($sp)
+  addi	$sp, $sp, 12			# $sp = $sp + 12 (reallocate space)
   jr $ra
 
 stack_pop:
   # $a0 is tp, the offset for the top element on the stack.
   # $a1 is the base address of the stack.
-  # First we want to check to see if the stack is empty by calling is_stack_empty
+  # First, we want to check to see if the stack is empty by calling is_stack_empty
   addi	$sp, $sp, -12			# $sp = $sp + -12 (allocate space)
   sw		$ra, 0($sp)		# store return address
   sw		$s0, 4($sp)		
@@ -57,6 +78,7 @@ stack_pop:
   move 	$s0, $a0		# $s0 = $a0 ($s0 = tp, the offset for the top element on the stack)
   move 	$s1, $a1		# $s1 = $a1 ($s1 = the base address of the stack)
   jal		is_stack_empty				# jump to is_stack_empty and save position to $ra
+  li		$t0, 1		# $t0 = 1
   beq		$v0, $t0, empty_stack_error	# if $v0 == $t0 then empty_stack_error
   # If we are here, then the stack isn't empty and we can continue with popping from the stack.
   add		$t1, $s0, $s1		# $t1 = $s0 + $s1 ($t1 = the address of the top element of the stack)
@@ -74,10 +96,10 @@ is_stack_empty:
   li		$t0, 0		# $t0 = 0
   blt		$a0, $t0, stack_is_empty	# if $a0 < $t0 then stack_is_empty
   # If we are here, then the stack isn't empty
-  addi	$v0, $0, 1			# $v0 = $0 + 1
+  addi	$v0, $0, 0			# $v0 = $0 + 0
   j		return_is_empty				# jump to return_is_empty
   stack_is_empty:
-    addi	$v0, $0, 0			# $v0 = $0 + 0
+    addi	$v0, $0, 1			# $v0 = $0 + 1
   return_is_empty:  
     jr $ra
 

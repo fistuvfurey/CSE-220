@@ -28,7 +28,7 @@ main:
   jal		stack_push				# jump to stack_push and save position to $ra
 
   la		$a1, val_stack
-  li		$a0, 8		# $a0 = 8
+  li		$a0, 0		# $a0 = 8
   jal		stack_pop				# jump to stack_pop and save position to $ra
   add		$s0, $0, $v0		# $s0 = $0 + $v0
   add		$s1, $0, $v1		# $s1 = $0 + $v1
