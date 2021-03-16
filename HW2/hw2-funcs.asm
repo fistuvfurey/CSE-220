@@ -47,10 +47,39 @@ stack_peek:
   jr $ra
 
 stack_pop:
+  # $a0 is tp, the offset for the top element on the stack.
+  # $a1 is the base address of the stack.
+  # First we want to check to see if the stack is empty by calling is_stack_empty
+  addi	$sp, $sp, -12			# $sp = $sp + -12 (allocate space)
+  sw		$ra, 0($sp)		# store return address
+  sw		$s0, 4($sp)		
+  sw		$s1, 8($sp)		
+  move 	$s0, $a0		# $s0 = $a0 ($s0 = tp, the offset for the top element on the stack)
+  move 	$s1, $a1		# $s1 = $a1 ($s1 = the base address of the stack)
+  jal		is_stack_empty				# jump to is_stack_empty and save position to $ra
+  beq		$v0, $t0, empty_stack_error	# if $v0 == $t0 then empty_stack_error
+  # If we are here, then the stack isn't empty and we can continue with popping from the stack.
+  add		$t1, $s0, $s1		# $t1 = $s0 + $s1 ($t1 = the address of the top element of the stack)
+  lw		$v1, 0($t1)		# load the top element into $v1 to return
+  move 	$v0, $s0		# $v0 = $s0 ($v0 = the new top of the stack)
+  # postamble
+  lw		$ra, 0($sp)		# load back return address
+  lw		$s0, 4($sp)		
+  lw		$s1, 8($sp)		 
+  addi	$sp, $sp, 12			# $sp = $sp + 12 (reallocate space) 
   jr $ra
 
 is_stack_empty:
-  jr $ra
+  # $a0 contains the tp of the stack.
+  li		$t0, 0		# $t0 = 0
+  blt		$a0, $t0, stack_is_empty	# if $a0 < $t0 then stack_is_empty
+  # If we are here, then the stack isn't empty
+  addi	$v0, $0, 1			# $v0 = $0 + 1
+  j		return_is_empty				# jump to return_is_empty
+  stack_is_empty:
+    addi	$v0, $0, 0			# $v0 = $0 + 0
+  return_is_empty:  
+    jr $ra
 
 valid_ops:
   # $a0 contains the arg of this function. 
@@ -158,5 +187,12 @@ apply_bop:
       syscall # print the error message
       li		$v0, 10		# $v0 = 10
       syscall # terminate   
-    return_op_result:
-      jr $ra
+  return_op_result:
+    jr $ra
+
+empty_stack_error:
+  la		$a0, BadToken		# load string error message
+  li		$v0, 4		# $v0 = 4
+  syscall # print error message
+  li		$v0, 10		# $v0 = 10
+  syscall # terminate
