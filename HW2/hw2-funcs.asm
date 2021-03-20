@@ -250,11 +250,9 @@ eval:
     move 	$a1, $s1		# $a1 = $s1 (pass the tp of the val_stack)
     la		$a2, val_stack		# (pass the base address of val_stack as arg3)
     jal		stack_push				# jump to stack_push and save position to $ra
-    
-    
-
-    
- 
+    move 	$s1, $v0		# $s1 = $v0 (save new tp of val_stack)
+    j		finished_parsing				# jump to finished_parsing
+  # *** End of finsihed_parsing loop *** 
   print_arithmetic_result:
     # Print result of arithmetic expression. 
     # The last element on the val_stack is the final result. 
