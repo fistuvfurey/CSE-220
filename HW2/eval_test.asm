@@ -4,6 +4,7 @@ WrongArgMsg: .asciiz "You must provide exactly one argument"
 BadToken: .asciiz "Unrecognized Token"
 ParseError: .asciiz "Ill Formed Expression"
 ApplyOpError: .asciiz "Operator could not be applied"
+TestString: .asciiz "12+2-3" 
 
 val_stack : .word 0
 op_stack : .word 0
@@ -11,8 +12,10 @@ op_stack : .word 0
 .text
 .globl main
 main:
-
-  # add code to call and test eval function
+	la		$a0, TestString		
+	jal		eval				# jump to eval and save position to $ra
+	
+	
 
 end:
 	# Terminates the program

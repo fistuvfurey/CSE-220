@@ -6,11 +6,282 @@
 
 .text
 eval:
-  jr $ra
+  # $a0 contains the base address of an asciiz string that represents an AExp.
+  # preamble
+  addi	$sp, $sp, -32			# $sp = $sp + -32
+  sw		$ra, 0($sp)		# store return address
+  sw		$s0, 4($sp)		
+  sw		$s1, 8($sp)	
+  sw		$s3, 12($sp)		 
+  sw		$s4, 16($sp)
+  sw		$s5, 20($sp)
+  sw		$s6, 24($sp)
+  sw		$s7, 28($sp)	 
+  # *** function body *** 
+  move 	$s0, $a0 		# $s0 = $a0 ($s0 = base address of AExp string)
+  addi	$s5, $0, 0			# $s5 = $0 + 0 (op_stack tp, starts off at zero)
+  addi	$s1, $0, 0			# $s1 = $0 + 0 (tp of val_stack, starts off at zero)
+  parse_aexp:
+    lb		$t0, 0($s0)		# load a char of the string into $t0
+    beqz $t0, finished_parsing # exit loop if char is null
+    move 	$a0, $t0		# $a0 = $t0 (load the char into $a0)
+    jal		is_digit				# jump to is_digit and save position to $ra
+    li		$t1, 1		# $t1 = 1
+    beq		$t1, $v0, char_is_digit	# if $t1 == $v0 then char_is_digit
+    # If we are here, than the char is an operator.
+    # First, lets check to see if this is a parantheses. 
+    li		$t1, '('		# $t1 = '('
+    beq		$t1, $t0, is_open_parantheses	# if $t1 == $t0 then is_open_parantheses
+    li		$t1, ')'		# $t1 = ')'
+    beq		$t1, $t0, is_closed_parantheses	# if $t1 == $t0 then is_closed_parantheses
+    # If we are here, then it is not a parantheses, so let's skip these next two labels. 
+    j		is_op				# jump to is_op
+    is_closed_parantheses:
+      # Since we've encountered a closed parantheses, we pop from the op_stack until we encounter a right paranthesis. 
+      # We perform the binary operation on two vals at a time from the top of the val_stack.
+      # Pop from the op_stack. 
+      addi	$s5, $s5, -4			# $s5 = $s5 + -4 (get the address of the top element on the op_stack)
+      move 	$a0, $s5		# $a0 = $s5 (pass the tp of the op_stack as arg1)
+      la		$a1, op_stack		# pass the address of the op_stack as arg2)
+      jal		stack_pop				# jump to stack_pop and save position to $ra
+      move 	$s5, $v0		# $s5 = $v0 (save the new tp of the op_stack)
+      move 	$s7, $v1		# $s7 = $v1 (save the operator into $s7)
+      # We need to check to see if the operator is an open paranthesis.
+      # If it is, we need to break this loop.
+      li		$t1, '('		# $t1 = '('
+      beq		$t1, $s7, parse_axp	# if $t1 == $s7 then parse_axp (if the operator is an open paranthesis, we discard it and parse the next char)
+      # If we are here, then the operator is not an open paranthesis.
+      # Pop twice from the val_stack to get the two operands.
+      # Get 2nd operand.
+      addi	$s1, $s1, -4			# $s1 = $s1 + -4 (get the address of the top element on the val_stack)
+      move 	$a0, $s1		# $a0 = $s1
+      la		$a1, val_stack
+      jal		stack_pop				# jump to stack_pop and save position to $ra
+      move 	$s1, $v0		# $s1 = $v0 (save the new tp of the val_stack)
+      move 	$t1, $v1		# $t1 = $v1 (save the 2nd operand) 
+      # Get the 1st operand.
+      addi	$s1, $s1, -4			# $s1 = $s1 + -4 (get the address of the top element on the val_stack)
+      move 	$a0, $s1		# $a0 = $s1 (pass the tp of the val_stack as arg1)
+      # $a1 already contains the address of the val_stack.
+      jal		stack_pop				# jump to stack_pop and save position to $ra
+      move 	$s1, $v0		# $s1 = $v0 (save the new tp of the val_stack)
+      # $v1 contains the 1st operand.
+      # Apply the binary operator to the 1st and 2nd operand.
+      move 	$a0, $v1		# $a0 = $v1 (pass the 1st operand as arg1)
+      move 	$a1, $s7		# $a1 = $s7 (pass the operator as arg2)
+      move 	$a2, $t1		# $a2 = $t1 (pass the 2nd operand as arg3)
+      jal		apply_bop				# jump to apply_bop and save position to $ra
+      # $v0 contans the result. 
+      # Push the result onto the val_stack.
+      move 	$a0, $v0		# $a0 = $v0 (pass the result as arg1)
+      move 	$a1, $s1		# $a1 = $s1 (pass the tp of the val_stack as arg1)
+      la		$a2, val_stack		
+      jal		stack_push				# jump to stack_push and save position to $ra
+      move 	$s1, $v0		# $s1 = $v0 (save the new tp of the val_stack)
+      j		is_closed_parantheses				# jump to is_closed_parantheses
+    ### *** End of Loop ***
+    is_open_parantheses:
+      # Since this is an open parantheses, we can just push it on the stack. 
+      move 	$a0, $t0		# $a0 = $t0
+      move 	$a1, $s5		# $a1 = $s5
+      la		$a2, op_stack		
+      jal		stack_push				# jump to stack_push and save position to $ra
+      move 	$s5, $v0		# $s5 = $v0 (save new tp of operator stack)
+      j		parse_aexp				# jump to parse_aexp
+    is_op:
+    # First, let's get the precedence of the current operator so that we can compare it with the operator at the
+    # top of the op_stack. 
+    move 	$a0, $t0		# $a0 = $t0
+    jal		op_precedence				# jump to op_precedence and save position to $ra
+    move 	$s4, $v0		# $s4 = $v0 (save the op_precedence of the current op into $s4
+    move 	$a0, $s5		# $a0 = $s5 (copy the tp of the op_stack into $a0 to pass into stack_peek)
+    la		$a1, op_stack		 
+    jal		stack_peek				# jump to stack_peek and save position to $ra
+    move 	$a0, $v0		# $a0 = $v0 (the op at the top of the stack)
+    jal		op_precedence				# jump to op_precedence and save position to $ra
+    bge		$v0, $s4, peek_precedence_gte	# if $v0 >= $s4 then peek_precedence_gte
+    # Else, if we are here, then the current op has a greater precedence than the peek and we can just push the op
+    # onto the op_stack.
+    move 	$a0, $t0		# $a0 = $t0
+    move 	$a1, $s5		# $a1 = $s5
+    la		$a2, op_stack
+    jal		stack_push				# jump to stack_push and save position to $ra
+    j		parse_aexp				# jump to parse_aexp
+    peek_precedence_gte:
+      # If we are here, then the peek has an op precedence greater than or equal to the current op. 
+      while_op_stack_not_empty: 
+        # Pop the op from the op_stack
+        addi	$s5, $s5, -4			# $s5 = $s5 + -4 (get address of the top element on the op_stack)
+        move 	$a0, $s5		# $a0 = $s5
+        la		$a1, op_stack
+        jal		stack_pop				# jump to stack_pop and save position to $ra
+        move 	$s5, $v0		# $s5 = $v0 (save new op_stack tp into $s5)
+        move 	$s7, $v1		# $s7 = $v1 (save op into $s7)
+        # Next, pop the 2nd operand from the top of val_stack.
+        addi	$s1, $s1, -4			# $s1 = $s1 + -4 (get the address of the top element on the val_stack)
+        move 	$a0, $s1		# $a0 = $s1 (pass tp of val_stack as arg1)
+        la		$a1, val_stack 
+        jal		stack_pop				# jump to stack_pop and save position to $ra
+        move 	$s1, $v0		# $s1 = $v0 (save new val_stack tp into $s5)
+        move 	$t1, $v1		# $t1 = $v1 (save 2nd operand into $t1)
+        # Next, pop the 1st operand from the top of val_stack.
+        addi	$s1, $s1, -4			# $s1 = $s1 + -4 (get the address of the top element on the val_stack)
+        move 	$a0, $s1		# $a0 = $s1 (pass the tp of val_stack as arg1)
+        # The address of val_stack should already be loaded into $a1 from last time.
+        jal		stack_pop				# jump to stack_pop and save position to $ra
+        move 	$s1, $v0		# $s1 = $v0 (save the new tp of val_stack into $s1)
+        # $v1 contains the val of the 1st operand.
+        # Apply the operator to the two operands.
+        move 	$a0, $v1		# a0 = $v1 (pass the 1st operand as arg1)
+        move 	$a1, $s7		# $a1 = $s7 (pass the operator as arg2)
+        move 	$a2, $t1		# $a2 = $t1 (pass the 2nd operand as arg2)
+        jal		apply_bop				# jump to apply_bop and save position to $ra
+        # $v0 contains the result of the binary operation.
+        # Push the result onto the val_stack.
+        move 	$a0, $v0	#a0 = $v0 (pass the result as arg1)
+        move 	$a1, $s1		# $a1 = $s1 (pass the tp of val_stack as arg2)
+        la		$a2, val_stack		# load the address of the val_stack as arg3
+        jal		stack_push				# jump to stack_push and save position to $ra
+        move 	$s1, $v0		# $s1 = $v0 (save the new tp of val_stack into $s1)
+        # Now, let's check to see if the op_stack is empty and if the top op on the op_stack has greater-than or equal precedence as the current op.
+        addi	$a0, $s5, -4			# $a0 = $s5 + -4 (pass the tp of the op_stack as arg1)
+        jal		is_stack_empty				# jump to is_stack_empty and save position to $ra
+        li		$t1, 1		# $t1 = 1
+        beq		$t1, $v0, push_current_op	# if $t1 == $v0 then push_current_op
+        # If we are here, then the op_stack is not empty.
+        # Let's compare to see if the top element on the op has greater-than or equal precedence as the current op.
+        # $s4 contains the precedence of the current op. 
+        move 	$a0, $s5 		# $a0 = $s5 (pass the tp of the op_stack as arg1)
+        la		$a1, op_stack		# load the address of the op_stack as arg2)
+        jal		stack_peek				# jump to stack_peek and save position to $ra
+        move 	$a0, $v0		# load the top element of the op_stack into $a0 so we can pass it into op_precedence
+        jal		op_precedence				# jump to op_precedence and save position to $ra
+        # $v0 contains the precedence of the op at the top of the op_stack
+        bge		$v0, $s4, while_op_stack_not_empty	# if $v0 >= $s4 then while_op_stack_not_empty
+        # If we are here, than the op at the top of the op_stack has a precedence less than the current op.
+        # We can push the current op onto the op_stack.
+        j		push_current_op				# jump to push_current_op
+      push_current_op:
+        # $t0 = current op
+        move 	$a0, $t0		# $a0 = $t0
+        move 	$a1, $s5		# $a1 = $s5 (pass the tp of the op_stack as arg2)
+        la		$a2, op_stack		# pass the address of the op_stack as arg3)
+        jal		stack_push				# jump to stack_push and save position to $ra
+        move 	$s5, $v0		# $s5 = $v0 (save the new tp of the op_stack into $s5)
+        j		parse_aexp				# jump to parse_aexp
+    char_is_digit:
+      # The char is a digit. First, let's check to see if this is an integer greater than 9. We need to check if consecutive chars are also digits.
+      move 	$t2, $s0		# $t2 = $s0 (copy base address of string into $t0 so we don't lose our place)
+      while_is_digit:
+        addi	$t2, $t2, 1			# $t2++ (increment address by 1 to get next char)
+        lb		$t3, 0($t2)		# load the next char into $t3
+        move 	$a0, $t3		# $a0 = $t3 (load the next char into $a0)
+        jal		is_digit				# jump to is_digit and save position to $ra
+        li		$t1, 1		# $t1 = 1
+        beq		$t1, $v0, while_is_digit	# if $t1 == $v0 then while_is_digit ($t1 = 1)
+      # *** end of while loop ***
+      addi	$s3, $t2, 0			# $s3 = $t2 + 0 (save the address of the least-significant digit so that we can use it later to get the next char)
+      addi	$t4, $0, 0			# $t4 = $0 + 0 ($t4 will hold the numeric value of the char(s))
+      addi	$t5, $0, 0			# $t5 = $0 + 0 (loop variable, i = 0)      
+      convert_to_num:
+        # Loop from least-significant digit and convert char to decimal integer (start from the address of the least-significant digit).
+        # $t2 = address of the least-significant digit.
+        lb		$t7, 0($t2)		# load least-significant digit into $t7
+        addi	$t7, $t7, -48			# $t2 = $t2 + -48 (subtracting 48 from the char representation gives us the actual numeric value)
+        li		$a0, 10		# $a0 = 10
+        move 	$a1, $t5		# $a1 = $t5 ($a1 = i)
+        jal		pow				# jump to pow and save position to $ra (10^i)
+        # Now, $v0 = 10^i.
+        mult	$t7, $v0			# $t7 * $v0 = Hi and Lo registers ($t7 * 10^i) 
+        mflo	$t6					# copy Lo to $t6 ($t6 the actual value of that digit with proper significance)
+        add		$t4, $t6, $t4		# $t4 = $t6 + $t4 ($t4 += $t6)
+        addi	$t2, $t2, -1			# $t2 = $t2 + -1 (decrement address to get the next char on the left)
+        addi	$t5, $t5, 1			# $t5 = $t5 + 1 (i++)
+        blt		$t2, $s0, push_val	# if $t2 < $s0 then push_val
+        j		convert_to_num				# jump to convert_to_num
+      # *** end of convert_to_num loop ***
+      push_val:
+        # Now that we have the correct val as a number, let's push it onto the stack. 
+        # $t4 contains the numeric value of the val we want to push. 
+        move 	$a0, $t4		# $a0 = $t4 (load our num val as an arg for stack_push)
+        move 	$a1, $s1		# $a1 = $s1 (load the val_stack top as an arg for stack_push)
+        la		$a2, val_stack		 
+        jal		stack_push				# jump to stack_push and save position to $ra
+        add		$s1, $0, $v0		# $s1 = $0 + $v0 (save the new tp into $s1)
+        # Revert back address originally held in $t2 so we can move to the next correct char.
+        add		$s0, $s3, $s0		# $s0 = $s3 + $s0 (get the correct address of the last char we just finished parsing)
+        addi	$s0, $s0, 1			# $s0 = $s0 + 1 (increment the address of the string so we can parse the next char)
+        j		parse_aexp				# jump to parse_aexp
+  # *** End of parsing loop ***
+  finished_parsing:
+    # Now that we have finished parsing, we need to pop form the operator stack until it is empty and perform the
+    # operations on two operands from the val_stack at a time.
+    # First, check to see if the op_stack is empty.
+    addi	$a0, $s5, -4			# $a0 = $s5 + -4
+    jal		is_stack_empty				# jump to is_stack_empty and save position to $ra
+    li		$t0, 1		# $t0 = 1
+    beq		$t0, $v0, print_arithmetic_result	# if $t0 == $v0 then return_arithmetic_result
+    # If we are here, then the op_stack is not empty.
+    # First, pop an operator from the op_stack.
+    # $a0 already contains the address of the element to pop.
+    la		$a1, op_stack		 
+    jal		stack_pop				# jump to stack_pop and save position to $ra
+    move 	$s5, $v0		# $s5 = $v0 (save new tp of op_stack)
+    move 	$s7, $v1		# $s7 = $v1 (save operator)
+    # Pop the 2nd operand from the val_stack.
+    addi	$a0, $s1, -4			# $a0 = $s1 + -4 (pass the tp of the val_stack as arg1)
+    la		$a1, val_stack		
+    jal		stack_pop				# jump to stack_pop and save position to $ra
+    move 	$s1, $v0		# $s5 = $v0 (save the new tp of the val_stack)
+    move 	$t1, $v1		# $t1 = $v1 (save the 2nd operand)
+    addi	$a0, $s1, -4			# $a0 = $s5 + -4
+    # $a1 already contains the base address of val_stack
+    jal		stack_pop				# jump to stack_pop and save position to $ra
+    move 	$s1, $v0		# $s5 = $v0 (save the new tp of the val_stack)
+    # $v1 contains the 1st operator.
+    # Perform the binary operation.
+    move 	$a0, $v0		# $a0 = $v0 (pass the 1st operand as arg1)
+    move 	$a1, $s7		# $a1 = $s7 (pass the operator as arg2)
+    move 	$a2, $t1		# $a2 = $t1 (pass the 2nd operator as arg3)
+    jal		apply_bop				# jump to apply_bop and save position to $ra
+    # $v0 contains the result of the binary operation.
+    # Push result onto val_stack. 
+    move 	$a0, $v0		# $a0 = $v0 (pass the result as arg1)
+    move 	$a1, $s1		# $a1 = $s1 (pass the tp of the val_stack)
+    la		$a2, val_stack		# (pass the base address of val_stack as arg3)
+    jal		stack_push				# jump to stack_push and save position to $ra
+    
+    
+
+    
+ 
+  print_arithmetic_result:
+    # Print result of arithmetic expression. 
+    # The last element on the val_stack is the final result. 
+    # Let's pop that from the val_stack and return it. 
+    addi	$s1, $s1, -4			# $s1 = $s1 + -4
+    move 	$a0, $s1		# $a0 = $s1 (pass the tp of the val_stack as arg1)
+    la		$a1, val_stack		 
+    jal		stack_pop				# jump to stack_pop and save position to $ra
+    # $v1 contains the final result.
+    # Print result.
+    li		$v0, 1		# $v0 = 1
+    move 	$a0, $v1		# $a0 = $v1
+    syscall
+    # Postamble 
+    lw		$ra, 0($sp)		# load return address
+    lw		$s0, 4($sp)		
+    lw		$s1, 8($sp)	
+    lw		$s3, 12($sp)		 
+    lw		$s4, 16($sp)
+    lw		$s5, 20($sp)
+    lw		$s6, 24($sp)
+    lw		$s7, 28($sp)
+    addi	$sp, $sp, 32			# $sp = $sp + 32 (reallocate memory)
+    jr $ra
 
 is_digit:
-  # $a0 contains the arg of this function.
-  # Check to see if $a0 holds a digit.
+  # $a0 contains the char to check.
   li		$t1, 48		# $t1 = 48 (ASCII value for '0')
   blt		$a0, $t1, not_digit	# if $a0, < $t1 then not_digit
   li		$t1, 57		# $t1 = 58 (ASCII value for one above '9')
@@ -213,8 +484,29 @@ apply_bop:
     jr $ra
 
 empty_stack_error:
-  la		$a0, BadToken		# load string error message
+  la		$a0, BadToken		# load error message
   li		$v0, 4		# $v0 = 4
   syscall # print error message
   li		$v0, 10		# $v0 = 10
   syscall # terminate
+
+parse_error:
+  la		$a0, ParseError		# load error message
+  li		$v0, 4		# $v0 = 4
+  syscall # print error message
+  li		$v0, 10		# $v0 = 10
+  syscall # terminate
+
+pow:
+  # Takes two args, $a0 and $a1, and returns $a0^$a1
+  addi	$t0, $0, 0			# $t0 = $0 + 0 (loop variable, i = 0)
+  addi	$v0, $0, 1			# $v0 = $0 + 1 (result)
+  loop:
+    beq		$t0, $a1, done	# if $t0 == $a1 then done
+    mult	$v0, $a0			# $v0 * $a0 = Hi and Lo registers
+    mflo	$v0					# copy Lo to $v0
+    addi	$t0, $t0, 1			# $t0 = $t0 + 1 (i++)
+    j		loop				# jump to loop
+  done:
+    jr		$ra					# jump to $ra
+    
