@@ -54,36 +54,41 @@ eval:
       # We need to check to see if the operator is an open paranthesis.
       # If it is, we need to break this loop.
       li		$t1, '('		# $t1 = '('
-      beq		$t1, $s7, parse_aexp	# if $t1 == $s7 then parse_axp (if the operator is an open paranthesis, we discard it and parse the next char)
+      beq		$t1, $s7, open_paranthesis_break	# if $t1 == $s7 then parse_axp (if the operator is an open paranthesis, we discard it and parse the next char)
       # If we are here, then the operator is not an open paranthesis.
-      # Pop twice from the val_stack to get the two operands.
-      # Get 2nd operand.
-      addi	$s1, $s1, -4			# $s1 = $s1 + -4 (get the address of the top element on the val_stack)
-      move 	$a0, $s1		# $a0 = $s1
-      la		$a1, val_stack
-      jal		stack_pop				# jump to stack_pop and save position to $ra
-      move 	$s1, $v0		# $s1 = $v0 (save the new tp of the val_stack)
-      move 	$t1, $v1		# $t1 = $v1 (save the 2nd operand) 
-      # Get the 1st operand.
-      addi	$s1, $s1, -4			# $s1 = $s1 + -4 (get the address of the top element on the val_stack)
-      move 	$a0, $s1		# $a0 = $s1 (pass the tp of the val_stack as arg1)
-      # $a1 already contains the address of the val_stack.
-      jal		stack_pop				# jump to stack_pop and save position to $ra
-      move 	$s1, $v0		# $s1 = $v0 (save the new tp of the val_stack)
-      # $v1 contains the 1st operand.
-      # Apply the binary operator to the 1st and 2nd operand.
-      move 	$a0, $v1		# $a0 = $v1 (pass the 1st operand as arg1)
-      move 	$a1, $s7		# $a1 = $s7 (pass the operator as arg2)
-      move 	$a2, $t1		# $a2 = $t1 (pass the 2nd operand as arg3)
-      jal		apply_bop				# jump to apply_bop and save position to $ra
-      # $v0 contans the result. 
-      # Push the result onto the val_stack.
-      move 	$a0, $v0		# $a0 = $v0 (pass the result as arg1)
-      move 	$a1, $s1		# $a1 = $s1 (pass the tp of the val_stack as arg1)
-      la		$a2, val_stack		
-      jal		stack_push				# jump to stack_push and save position to $ra
-      move 	$s1, $v0		# $s1 = $v0 (save the new tp of the val_stack)
-      j		is_closed_parantheses				# jump to is_closed_parantheses
+      j		compute_paranthesis				# jump to compute_paranthesis
+      open_paranthesis_break:
+        addi	$s0, $s0, 1			# $s0 = $s0 + 1 (get next char of string)
+        j		parse_aexp				# jump to parse_aexp
+      compute_paranthesis: 
+        # Pop twice from the val_stack to get the two operands.
+        # Get 2nd operand.
+        addi	$s1, $s1, -4			# $s1 = $s1 + -4 (get the address of the top element on the val_stack)
+        move 	$a0, $s1		# $a0 = $s1
+        la		$a1, val_stack
+        jal		stack_pop				# jump to stack_pop and save position to $ra
+        move 	$s1, $v0		# $s1 = $v0 (save the new tp of the val_stack)
+        move 	$s3, $v1		# $s3 = $v1 (save the 2nd operand) 
+        # Get the 1st operand.
+        addi	$s1, $s1, -4			# $s1 = $s1 + -4 (get the address of the top element on the val_stack)
+        move 	$a0, $s1		# $a0 = $s1 (pass the tp of the val_stack as arg1)
+        # $a1 already contains the address of the val_stack.
+        jal		stack_pop				# jump to stack_pop and save position to $ra
+        move 	$s1, $v0		# $s1 = $v0 (save the new tp of the val_stack)
+        # $v1 contains the 1st operand.
+        # Apply the binary operator to the 1st and 2nd operand.
+        move 	$a0, $v1		# $a0 = $v1 (pass the 1st operand as arg1)
+        move 	$a1, $s7		# $a1 = $s7 (pass the operator as arg2)
+        move 	$a2, $s3		# $a2 = $s3 (pass the 2nd operand as arg3)
+        jal		apply_bop				# jump to apply_bop and save position to $ra
+        # $v0 contans the result. 
+        # Push the result onto the val_stack.
+        move 	$a0, $v0		# $a0 = $v0 (pass the result as arg1)
+        move 	$a1, $s1		# $a1 = $s1 (pass the tp of the val_stack as arg1)
+        la		$a2, val_stack		
+        jal		stack_push				# jump to stack_push and save position to $ra
+        move 	$s1, $v0		# $s1 = $v0 (save the new tp of the val_stack)
+        j		is_closed_parantheses				# jump to is_closed_parantheses
     ### *** End of Loop ***
     is_open_parantheses:
       # Since this is an open parantheses, we can just push it on the stack. 
@@ -102,21 +107,28 @@ eval:
     li		$t1, 1		# $t1 = 1
     beq		$t1, $v0, op_stack_is_empty	# if $t1 == $v0 then op_stack_is_empty
     # Else, if we are here, then the op_stack isn't empty. 
-    # First, let's get the precedence of the current operator so that we can compare it with the operator at the
+    # First, let's see if the top element of the op_stack is a paranthesis. If it is, then we can just pop
+    # the current op onto the op_stack. 
+    addi	$a0, $s5, -4			# $a0 = $s5 + -4
+    move 	$a1, $s6		# $a1 = $s6
+    jal		stack_peek				# jump to stack_peek and save position to $ra
+    move 	$s3, $v0		# $s3 = $v0 (save the op at the top of the op_stack)
+    li		$t1, '('		# $t1 = '('
+    beq		$t1, $s3, op_stack_is_empty	# if $t1 == $s3 then op_stack_is_empty
+    # Else, if we are here, then the op at the top of the op_stack is not a parenthesis.
+    # Let's get the precedence of the current operator so that we can compare it with the operator at the
     # top of the op_stack. 
     move 	$a0, $s2		# $a0 = $s2
     jal		op_precedence				# jump to op_precedence and save position to $ra
     move 	$s4, $v0		# $s4 = $v0 (save the op_precedence of the current op into $s4
-    addi	$a0, $s5, -4			# $a0 = $s5 + -4
-    move 	$a1, $s6		# $a1 = $s6		 
-    jal		stack_peek				# jump to stack_peek and save position to $ra
-    move 	$a0, $v0		# $a0 = $v0 (the op at the top of the stack)
+    # $s3 contains the op at the top of the op_stack.
+    move 	$a0, $s3		# $a0 = $s3 (the op at the top of the stack)
     jal		op_precedence				# jump to op_precedence and save position to $ra
     bge		$v0, $s4, peek_precedence_gte	# if $v0 >= $s4 then peek_precedence_gte
     op_stack_is_empty:
       # Else, if we are here, then the current op has a greater precedence than the peek (or the op_stack is empty) 
       # and we can just push the op onto the op_stack.
-      move 	$a0, $t3		# $a0 = $t3
+      move 	$a0, $s2		# $a0 = $t3
       move 	$a1, $s5		# $a1 = $s5
       move 	$a2, $s6		# $a2 = $s6
       jal		stack_push				# jump to stack_push and save position to $ra
