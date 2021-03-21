@@ -114,35 +114,43 @@ eval:
       
       j		parse_aexp				# jump to parse_aexp
     is_op:
-    # First, let's check to see if we have a valid op. 
-    move 	$a0, $s2		# $a0 = $s2 (pass the op as arg1)
-    jal		valid_ops				# jump to valid_ops and save position to $ra
-    li		$t1, 0		# $t1 = 0
-    beq		$t1, $v0, empty_stack_error	# if $t1 == $v0 then empty_stack_error (throw bad token error message)
-    # If the op_stack is empty, we can just push the operator onto the stack.
-    addi	$a0, $s5, -4			# $a0 = $s5 + -4
-    jal		is_stack_empty				# jump to is_stack_empty and save position to $ra
-    li		$t1, 1		# $t1 = 1
-    beq		$t1, $v0, op_stack_is_empty	# if $t1 == $v0 then op_stack_is_empty
-    # Else, if we are here, then the op_stack isn't empty. 
-    # First, let's see if the top element of the op_stack is a paranthesis. If it is, then we can just pop
-    # the current op onto the op_stack. 
-    addi	$a0, $s5, -4			# $a0 = $s5 + -4
-    move 	$a1, $s6		# $a1 = $s6
-    jal		stack_peek				# jump to stack_peek and save position to $ra
-    move 	$s3, $v0		# $s3 = $v0 (save the op at the top of the op_stack)
-    li		$t1, '('		# $t1 = '('
-    beq		$t1, $s3, op_stack_is_empty	# if $t1 == $s3 then op_stack_is_empty
-    # Else, if we are here, then the op at the top of the op_stack is not a parenthesis.
-    # Let's get the precedence of the current operator so that we can compare it with the operator at the
-    # top of the op_stack. 
-    move 	$a0, $s2		# $a0 = $s2
-    jal		op_precedence				# jump to op_precedence and save position to $ra
-    move 	$s4, $v0		# $s4 = $v0 (save the op_precedence of the current op into $s4
-    # $s3 contains the op at the top of the op_stack.
-    move 	$a0, $s3		# $a0 = $s3 (the op at the top of the stack)
-    jal		op_precedence				# jump to op_precedence and save position to $ra
-    bge		$v0, $s4, peek_precedence_gte	# if $v0 >= $s4 then peek_precedence_gte
+      # First, let's check to see if we have a valid op. 
+      move 	$a0, $s2		# $a0 = $s2 (pass the op as arg1)
+      jal		valid_ops				# jump to valid_ops and save position to $ra
+      li		$t1, 0		# $t1 = 0
+      beq		$t1, $v0, empty_stack_error	# if $t1 == $v0 then empty_stack_error (throw bad token error message)
+      # Now, we also need to check to see if the next char is also an operator. If so, then we have an ill-formed 
+      # expression. 
+      lb		$t1, 1($s0)		# load the next char
+      move 	$a0, $t1		# $a0 = $t1
+      jal		is_digit				# jump to is_digit and save position to $ra
+      li		$t1, 1 		# $t1 = 1
+      bne		$v0, $t1, parse_error	# if $v0 != $t1 then parse_error
+      # Else if we are here, then the next char is a digit and we have a valid expression thus far.
+      # If the op_stack is empty, we can just push the operator onto the stack.
+      addi	$a0, $s5, -4			# $a0 = $s5 + -4
+      jal		is_stack_empty				# jump to is_stack_empty and save position to $ra
+      li		$t1, 1		# $t1 = 1
+      beq		$t1, $v0, op_stack_is_empty	# if $t1 == $v0 then op_stack_is_empty
+      # Else, if we are here, then the op_stack isn't empty. 
+      # First, let's see if the top element of the op_stack is a paranthesis. If it is, then we can just pop
+      # the current op onto the op_stack. 
+      addi	$a0, $s5, -4			# $a0 = $s5 + -4
+      move 	$a1, $s6		# $a1 = $s6
+      jal		stack_peek				# jump to stack_peek and save position to $ra
+      move 	$s3, $v0		# $s3 = $v0 (save the op at the top of the op_stack)
+      li		$t1, '('		# $t1 = '('
+      beq		$t1, $s3, op_stack_is_empty	# if $t1 == $s3 then op_stack_is_empty
+      # Else, if we are here, then the op at the top of the op_stack is not a parenthesis.
+      # Let's get the precedence of the current operator so that we can compare it with the operator at the
+      # top of the op_stack. 
+      move 	$a0, $s2		# $a0 = $s2
+      jal		op_precedence				# jump to op_precedence and save position to $ra
+      move 	$s4, $v0		# $s4 = $v0 (save the op_precedence of the current op into $s4
+      # $s3 contains the op at the top of the op_stack.
+      move 	$a0, $s3		# $a0 = $s3 (the op at the top of the stack)
+      jal		op_precedence				# jump to op_precedence and save position to $ra
+      bge		$v0, $s4, peek_precedence_gte	# if $v0 >= $s4 then peek_precedence_gte
     op_stack_is_empty:
       # Else, if we are here, then the current op has a greater precedence than the peek (or the op_stack is empty) 
       # and we can just push the op onto the op_stack.
