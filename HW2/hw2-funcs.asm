@@ -8,32 +8,37 @@
 eval:
   # $a0 contains the base address of an asciiz string that represents an AExp.
   # preamble
-  addi	$sp, $sp, -32			# $sp = $sp + -32
+  addi	$sp, $sp, -36			# $sp = $sp + -36
   sw		$ra, 0($sp)		# store return address
   sw		$s0, 4($sp)		
   sw		$s1, 8($sp)	
-  sw		$s3, 12($sp)		 
-  sw		$s4, 16($sp)
-  sw		$s5, 20($sp)
-  sw		$s6, 24($sp)
-  sw		$s7, 28($sp)	 
+  sw		$s2, 12($sp) 
+  sw		$s3, 16($sp)		 
+  sw		$s4, 20($sp)
+  sw		$s5, 24($sp)
+  sw		$s6, 28($sp)
+  sw		$s7, 32($sp)	 
   # *** function body *** 
+  la		$s6, op_stack		# load the base address of the op_stack
+  addi	$s6, $s6, 500			# $s6 = $s6 + 2000 (Add 2000 to the base address of the op_stack to avoid any overlap
+  # between the two stacks.
+  # We will use $s6 from now on when we need the base address of the op_stack.
   move 	$s0, $a0 		# $s0 = $a0 ($s0 = base address of AExp string)
   addi	$s5, $0, 0			# $s5 = $0 + 0 (op_stack tp, starts off at zero)
   addi	$s1, $0, 0			# $s1 = $0 + 0 (tp of val_stack, starts off at zero)
   parse_aexp:
-    lb		$t0, 0($s0)		# load a char of the string into $t0
-    beqz $t0, finished_parsing # exit loop if char is null
-    move 	$a0, $t0		# $a0 = $t0 (load the char into $a0)
+    lb		$s2, 0($s0)		# load a char of the string into $s2
+    beqz $s2, finished_parsing # exit loop if char is null
+    move 	$a0, $s2		# $a0 = $s2 (load the char into $a0)
     jal		is_digit				# jump to is_digit and save position to $ra
     li		$t1, 1		# $t1 = 1
     beq		$t1, $v0, char_is_digit	# if $t1 == $v0 then char_is_digit
     # If we are here, than the char is an operator.
     # First, lets check to see if this is a parantheses. 
     li		$t1, '('		# $t1 = '('
-    beq		$t1, $t0, is_open_parantheses	# if $t1 == $t0 then is_open_parantheses
+    beq		$t1, $s2, is_open_parantheses	# if $t1 == $s2 then is_open_parantheses
     li		$t1, ')'		# $t1 = ')'
-    beq		$t1, $t0, is_closed_parantheses	# if $t1 == $t0 then is_closed_parantheses
+    beq		$t1, $s2, is_closed_parantheses	# if $t1 == $s2 then is_closed_parantheses
     # If we are here, then it is not a parantheses, so let's skip these next two labels. 
     j		is_op				# jump to is_op
     is_closed_parantheses:
@@ -42,14 +47,14 @@ eval:
       # Pop from the op_stack. 
       addi	$s5, $s5, -4			# $s5 = $s5 + -4 (get the address of the top element on the op_stack)
       move 	$a0, $s5		# $a0 = $s5 (pass the tp of the op_stack as arg1)
-      la		$a1, op_stack		# pass the address of the op_stack as arg2)
+      move 	$a1, $s6		# $a1 = $s6		# pass the address of the op_stack as arg2)
       jal		stack_pop				# jump to stack_pop and save position to $ra
       move 	$s5, $v0		# $s5 = $v0 (save the new tp of the op_stack)
       move 	$s7, $v1		# $s7 = $v1 (save the operator into $s7)
       # We need to check to see if the operator is an open paranthesis.
       # If it is, we need to break this loop.
       li		$t1, '('		# $t1 = '('
-      beq		$t1, $s7, parse_axp	# if $t1 == $s7 then parse_axp (if the operator is an open paranthesis, we discard it and parse the next char)
+      beq		$t1, $s7, parse_aexp	# if $t1 == $s7 then parse_axp (if the operator is an open paranthesis, we discard it and parse the next char)
       # If we are here, then the operator is not an open paranthesis.
       # Pop twice from the val_stack to get the two operands.
       # Get 2nd operand.
@@ -82,38 +87,47 @@ eval:
     ### *** End of Loop ***
     is_open_parantheses:
       # Since this is an open parantheses, we can just push it on the stack. 
-      move 	$a0, $t0		# $a0 = $t0
+      move 	$a0, $s2		# $a0 = $s2
       move 	$a1, $s5		# $a1 = $s5
-      la		$a2, op_stack		
+      move 	$a2, $s6		# $a2 = $s6		
       jal		stack_push				# jump to stack_push and save position to $ra
       move 	$s5, $v0		# $s5 = $v0 (save new tp of operator stack)
       j		parse_aexp				# jump to parse_aexp
     is_op:
+    # If the op_stack is empty, we can just push the operator onto the stack.
+    addi	$a0, $s5, -4			# $a0 = $s5 + -4
+    jal		is_stack_empty				# jump to is_stack_empty and save position to $ra
+    li		$t1, 1		# $t1 = 1
+    beq		$t1, $v0, op_stack_is_empty	# if $t1 == $v0 then op_stack_is_empty
+    # Else, if we are here, then the op_stack isn't empty. 
     # First, let's get the precedence of the current operator so that we can compare it with the operator at the
     # top of the op_stack. 
-    move 	$a0, $t0		# $a0 = $t0
+    move 	$a0, $s2		# $a0 = $s2
     jal		op_precedence				# jump to op_precedence and save position to $ra
     move 	$s4, $v0		# $s4 = $v0 (save the op_precedence of the current op into $s4
-    move 	$a0, $s5		# $a0 = $s5 (copy the tp of the op_stack into $a0 to pass into stack_peek)
-    la		$a1, op_stack		 
+    addi	$a0, $s5, -4			# $a0 = $s5 + -4
+    move 	$a1, $s6		# $a1 = $s6		 
     jal		stack_peek				# jump to stack_peek and save position to $ra
     move 	$a0, $v0		# $a0 = $v0 (the op at the top of the stack)
     jal		op_precedence				# jump to op_precedence and save position to $ra
     bge		$v0, $s4, peek_precedence_gte	# if $v0 >= $s4 then peek_precedence_gte
-    # Else, if we are here, then the current op has a greater precedence than the peek and we can just push the op
-    # onto the op_stack.
-    move 	$a0, $t0		# $a0 = $t0
-    move 	$a1, $s5		# $a1 = $s5
-    la		$a2, op_stack
-    jal		stack_push				# jump to stack_push and save position to $ra
-    j		parse_aexp				# jump to parse_aexp
+    op_stack_is_empty:
+      # Else, if we are here, then the current op has a greater precedence than the peek (or the op_stack is empty) 
+      # and we can just push the op onto the op_stack.
+      move 	$a0, $t3		# $a0 = $t3
+      move 	$a1, $s5		# $a1 = $s5
+      move 	$a2, $s6		# $a2 = $s6
+      jal		stack_push				# jump to stack_push and save position to $ra
+      move 	$s5, $v0		# $s5 = $v0 (save the tp of the op_stack)
+      addi	$s0, $s0, 1			# $s0 = $s0 + 1 (get address of next char)
+      j		parse_aexp				# jump to parse_aexp
     peek_precedence_gte:
       # If we are here, then the peek has an op precedence greater than or equal to the current op. 
       while_op_stack_not_empty: 
         # Pop the op from the op_stack
         addi	$s5, $s5, -4			# $s5 = $s5 + -4 (get address of the top element on the op_stack)
         move 	$a0, $s5		# $a0 = $s5
-        la		$a1, op_stack
+        move 	$a1, $s6		# $a1 = $s6
         jal		stack_pop				# jump to stack_pop and save position to $ra
         move 	$s5, $v0		# $s5 = $v0 (save new op_stack tp into $s5)
         move 	$s7, $v1		# $s7 = $v1 (save op into $s7)
@@ -152,7 +166,7 @@ eval:
         # Let's compare to see if the top element on the op has greater-than or equal precedence as the current op.
         # $s4 contains the precedence of the current op. 
         move 	$a0, $s5 		# $a0 = $s5 (pass the tp of the op_stack as arg1)
-        la		$a1, op_stack		# load the address of the op_stack as arg2)
+        move 	$a1, $s6		# $a1 = $s6		(load the address of the op_stack as arg2)
         jal		stack_peek				# jump to stack_peek and save position to $ra
         move 	$a0, $v0		# load the top element of the op_stack into $a0 so we can pass it into op_precedence
         jal		op_precedence				# jump to op_precedence and save position to $ra
@@ -162,10 +176,10 @@ eval:
         # We can push the current op onto the op_stack.
         j		push_current_op				# jump to push_current_op
       push_current_op:
-        # $t0 = current op
-        move 	$a0, $t0		# $a0 = $t0
+        # $s2 = current op
+        move 	$a0, $s2		# $a0 = $s2
         move 	$a1, $s5		# $a1 = $s5 (pass the tp of the op_stack as arg2)
-        la		$a2, op_stack		# pass the address of the op_stack as arg3)
+        move 	$a2, $s6		# $a2 = $s6		# pass the address of the op_stack as arg3)
         jal		stack_push				# jump to stack_push and save position to $ra
         move 	$s5, $v0		# $s5 = $v0 (save the new tp of the op_stack into $s5)
         j		parse_aexp				# jump to parse_aexp
@@ -179,6 +193,8 @@ eval:
         jal		is_digit				# jump to is_digit and save position to $ra
         li		$t1, 1		# $t1 = 1
         beq		$t1, $v0, while_is_digit	# if $t1 == $v0 then while_is_digit ($t1 = 1)
+        addi	$t2, $t2, -1			# $t2 = $t2 + -1
+        
       # *** end of while loop ***
       addi	$s3, $t2, 0			# $s3 = $t2 + 0 (save the address of the least-significant digit so that we can use it later to get the next char)
       addi	$t4, $0, 0			# $t4 = $0 + 0 ($t4 will hold the numeric value of the char(s))
@@ -209,8 +225,10 @@ eval:
         jal		stack_push				# jump to stack_push and save position to $ra
         add		$s1, $0, $v0		# $s1 = $0 + $v0 (save the new tp into $s1)
         # Revert back address originally held in $t2 so we can move to the next correct char.
-        add		$s0, $s3, $s0		# $s0 = $s3 + $s0 (get the correct address of the last char we just finished parsing)
-        addi	$s0, $s0, 1			# $s0 = $s0 + 1 (increment the address of the string so we can parse the next char)
+        move 	$s0, $t2		# $s0 = $t2
+        sub		$t4, $s3, $s0		# $t4 = $s3 - $s0
+        add		$s0, $t4, $s0		# $s0 = $t4 + $s0
+        addi	$s0, $s0, 1		# $s0 = $s0 + 1 (increment the address of the string so we can parse the next char)
         j		parse_aexp				# jump to parse_aexp
   # *** End of parsing loop ***
   finished_parsing:
@@ -224,7 +242,7 @@ eval:
     # If we are here, then the op_stack is not empty.
     # First, pop an operator from the op_stack.
     # $a0 already contains the address of the element to pop.
-    la		$a1, op_stack		 
+    move 	$a1, $s6		# $a1 = $s6		 
     jal		stack_pop				# jump to stack_pop and save position to $ra
     move 	$s5, $v0		# $s5 = $v0 (save new tp of op_stack)
     move 	$s7, $v1		# $s7 = $v1 (save operator)
@@ -268,14 +286,15 @@ eval:
     syscall
     # Postamble 
     lw		$ra, 0($sp)		# load return address
-    lw		$s0, 4($sp)		
-    lw		$s1, 8($sp)	
-    lw		$s3, 12($sp)		 
-    lw		$s4, 16($sp)
-    lw		$s5, 20($sp)
-    lw		$s6, 24($sp)
-    lw		$s7, 28($sp)
-    addi	$sp, $sp, 32			# $sp = $sp + 32 (reallocate memory)
+    lw		$s0, 4($sp)
+    lw		$s2, 8($sp)
+    lw		$s1, 12($sp)	
+    lw		$s3, 16($sp)		 
+    lw		$s4, 20($sp)
+    lw		$s5, 24($sp)
+    lw		$s6, 28($sp)
+    lw		$s7, 32($sp)
+    addi	$sp, $sp, 36			# $sp = $sp + 36 (reallocate memory)
     jr $ra
 
 is_digit:
