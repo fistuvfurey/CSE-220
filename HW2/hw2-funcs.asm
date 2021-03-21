@@ -20,7 +20,7 @@ eval:
   sw		$s7, 32($sp)	 
   # *** function body *** 
   la		$s6, op_stack		# load the base address of the op_stack
-  addi	$s6, $s6, 500			# $s6 = $s6 + 2000 (Add 2000 to the base address of the op_stack to avoid any overlap
+  addi	$s6, $s6, 2000			# $s6 = $s6 + 2000 (Add 2000 to the base address of the op_stack to avoid any overlap
   # between the two stacks.
   # We will use $s6 from now on when we need the base address of the op_stack.
   move 	$s0, $a0 		# $s0 = $a0 ($s0 = base address of AExp string)
@@ -92,6 +92,8 @@ eval:
       move 	$a2, $s6		# $a2 = $s6		
       jal		stack_push				# jump to stack_push and save position to $ra
       move 	$s5, $v0		# $s5 = $v0 (save new tp of operator stack)
+      addi	$s0, $s0, 1			# $s0 = $s0 + 1 (increment string base address to get next char)
+      
       j		parse_aexp				# jump to parse_aexp
     is_op:
     # If the op_stack is empty, we can just push the operator onto the stack.
@@ -136,8 +138,8 @@ eval:
         move 	$a0, $s1		# $a0 = $s1 (pass tp of val_stack as arg1)
         la		$a1, val_stack 
         jal		stack_pop				# jump to stack_pop and save position to $ra
-        move 	$s1, $v0		# $s1 = $v0 (save new val_stack tp into $s5)
-        move 	$t1, $v1		# $t1 = $v1 (save 2nd operand into $t1)
+        move 	$s1, $v0		# $s1 = $v0 (save new val_stack tp into $s1)
+        move 	$s3, $v1		# $t1 = $v1 (save 2nd operand into $s3)
         # Next, pop the 1st operand from the top of val_stack.
         addi	$s1, $s1, -4			# $s1 = $s1 + -4 (get the address of the top element on the val_stack)
         move 	$a0, $s1		# $a0 = $s1 (pass the tp of val_stack as arg1)
@@ -148,7 +150,7 @@ eval:
         # Apply the operator to the two operands.
         move 	$a0, $v1		# a0 = $v1 (pass the 1st operand as arg1)
         move 	$a1, $s7		# $a1 = $s7 (pass the operator as arg2)
-        move 	$a2, $t1		# $a2 = $t1 (pass the 2nd operand as arg2)
+        move 	$a2, $s3		# $a2 = $s3 (pass the 2nd operand as arg2)
         jal		apply_bop				# jump to apply_bop and save position to $ra
         # $v0 contains the result of the binary operation.
         # Push the result onto the val_stack.
@@ -182,6 +184,7 @@ eval:
         move 	$a2, $s6		# $a2 = $s6		# pass the address of the op_stack as arg3)
         jal		stack_push				# jump to stack_push and save position to $ra
         move 	$s5, $v0		# $s5 = $v0 (save the new tp of the op_stack into $s5)
+        addi	$s0, $s0, 1			# $s0 = $s0 + 1 (increment string address to get the next char)
         j		parse_aexp				# jump to parse_aexp
     char_is_digit:
       # The char is a digit. First, let's check to see if this is an integer greater than 9. We need to check if consecutive chars are also digits.
@@ -251,16 +254,16 @@ eval:
     la		$a1, val_stack		
     jal		stack_pop				# jump to stack_pop and save position to $ra
     move 	$s1, $v0		# $s5 = $v0 (save the new tp of the val_stack)
-    move 	$t1, $v1		# $t1 = $v1 (save the 2nd operand)
+    move 	$s3, $v1		# $t1 = $v1 (save the 2nd operand)
     addi	$a0, $s1, -4			# $a0 = $s5 + -4
     # $a1 already contains the base address of val_stack
     jal		stack_pop				# jump to stack_pop and save position to $ra
     move 	$s1, $v0		# $s5 = $v0 (save the new tp of the val_stack)
     # $v1 contains the 1st operator.
     # Perform the binary operation.
-    move 	$a0, $v0		# $a0 = $v0 (pass the 1st operand as arg1)
+    move 	$a0, $v1		# $a0 = $v1 (pass the 1st operand as arg1)
     move 	$a1, $s7		# $a1 = $s7 (pass the operator as arg2)
-    move 	$a2, $t1		# $a2 = $t1 (pass the 2nd operator as arg3)
+    move 	$a2, $s3		# $a2 = $t1 (pass the 2nd operator as arg3)
     jal		apply_bop				# jump to apply_bop and save position to $ra
     # $v0 contains the result of the binary operation.
     # Push result onto val_stack. 
@@ -347,7 +350,7 @@ stack_peek:
   beq		$v0, $t0, empty_stack_error	# if $v0 == $t0 then empty_stack_error
   # If we are here, then the stack isn't empty and we can continue peeking.
   add		$t1, $s0, $s1		# $t1 = $s0 + $s1 ($t1 = the address of the top element of the stack)
-  lw		$v0, 0($t1)		# load the top element into $v1 to return 
+  lw		$v0, 0($t1)		# load the top element into $v0 to return 
   # postamble
   lw		$ra, 0($sp)		# load back return address
   lw		$s0, 4($sp)		
