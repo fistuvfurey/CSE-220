@@ -26,6 +26,19 @@ eval:
   move 	$s0, $a0 		# $s0 = $a0 ($s0 = base address of AExp string)
   addi	$s5, $0, 0			# $s5 = $0 + 0 (op_stack tp, starts off at zero)
   addi	$s1, $0, 0			# $s1 = $0 + 0 (tp of val_stack, starts off at zero)
+  # First, lets make sure we don't have an empty string. Also, lets make sure that the first char is a digit.
+  # If either of those things, throw an error.
+  lb		$s2, 0($s0)		# load the first char
+  beqz $s2, parse_error # if the first char is null, throw parse error.
+  # If the first char is an open paranthesis, then we have a valid string.
+  li		$t0, '('		# $t0 = '('
+  beq		$t0, $s2, parse_aexp	# if $t0 == $s2 then parse_aexp
+  # If we are here, then the first char is not an open paranthesis. 
+  # The first char has to be a digit in order for it to be a valid expression. 
+  move 	$a0, $s2		# $a0 = $s2
+  jal		is_digit				# jump to is_digit and save position to $ra
+  li		$t0, 1		# $t0 = 1
+  bne		$t0, $v0, parse_error	# if $t0 != $v0 then target
   parse_aexp:
     lb		$s2, 0($s0)		# load a char of the string into $s2
     beqz $s2, finished_parsing # exit loop if char is null
@@ -101,6 +114,11 @@ eval:
       
       j		parse_aexp				# jump to parse_aexp
     is_op:
+    # First, let's check to see if we have a valid op. 
+    move 	$a0, $s2		# $a0 = $s2 (pass the op as arg1)
+    jal		valid_ops				# jump to valid_ops and save position to $ra
+    li		$t1, 0		# $t1 = 0
+    beq		$t1, $v0, empty_stack_error	# if $t1 == $v0 then empty_stack_error (throw bad token error message)
     # If the op_stack is empty, we can just push the operator onto the stack.
     addi	$a0, $s5, -4			# $a0 = $s5 + -4
     jal		is_stack_empty				# jump to is_stack_empty and save position to $ra
@@ -128,7 +146,7 @@ eval:
     op_stack_is_empty:
       # Else, if we are here, then the current op has a greater precedence than the peek (or the op_stack is empty) 
       # and we can just push the op onto the op_stack.
-      move 	$a0, $s2		# $a0 = $t3
+      move 	$a0, $s2		# $a0 = $s2
       move 	$a1, $s5		# $a1 = $s5
       move 	$a2, $s6		# $a2 = $s6
       jal		stack_push				# jump to stack_push and save position to $ra
