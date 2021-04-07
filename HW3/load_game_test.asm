@@ -17,6 +17,16 @@ main:
 la $a0, state
 la $a1, board_filename
 jal load_game
+
+move 	$t0, $v0		# $t0 = $v0
+move 	$t1, $v1		# $t1 = $v1
+
+li		$v0, 1	# $v0 = 1
+move 	$a0, $t0		# $a0 = $t0
+syscall
+move 	$a0, $t1		# $a0 = $t1
+syscall
+
 # You must write your own code here to check the correctness of the function implementation.
 
 li $v0, 10

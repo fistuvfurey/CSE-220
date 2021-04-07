@@ -17,7 +17,7 @@ load_game:
 	sw		$s3, 0($sp)		# # of pockets 
 	sw		$s4, 0($sp)		# file_descriptor
 	sw		$s5, 0($sp)		# current_char
-	sw		$s6, 0($sp)		# number of stones in bot_mancala 
+	sw		$s6, 0($sp)		# number of stones in bot_mancala
 	sw		$s7, 0($sp)		# address of board string
 	
 
@@ -33,6 +33,9 @@ load_game:
 	syscall
 	move 	$s4, $v0		# $s4 = $v0 (save the file descriptor)
 
+	# If the file descriptor is negative then the file does not exist. 
+	bltz $s4, file_dne 
+	
 	li		$s2, 1		# $s2 = 1 (line_number)
 	addi	$sp, $sp, -4			# $sp = $sp + -4 (allocate 4 bytes on stack for the char we are reading)
 	read_file:
@@ -67,22 +70,58 @@ load_game:
 			mflo	$t2					# copy Lo to $t2 
 			addi	$t2, $t2, -1			# $t2 = $t2 + -1 ($t2 = ((# of pockets) * 2) - 1)
 			
-			sb		$s5, 0($s7)		# store first char of line in board string 
+			sb		$s5, 0($s7)		# store first char of line in board string
+
+			# Update num_stones. 
+			addi	$s5, $s5, -48			# $s5 = $s5 + -48 (char -> int)
+			li		$t3, 10		# $t3 = 10
+			mult	$t3, $s5			# $t3 * $s5 = Hi and Lo registers
+			mflo	$t3					# copy Lo to $t3
+			add		$s1, $s1, $t3		# $s1 = $s1 + $t3 (update the value of num_stones) 
+			
 			addi	$s7, $s7, 1			# $s7 = $s7 + 1 (increment address of board string)
+			li		$t6, 0		# $t6 = 0 (digit_place_flag)
 			initialize_board:
 				# This will loop for i < (# of pockets * 2) - 1.
 				# We will repeat this loop twice for lines 4 and 5. 
+				# digit_place_flag will keep track of proper value of the current char we are reading. It will flip each iteration.
+				# When digit_place_flag is 0, multiply value by 10. When 1, just add value to num_stones.
 				# Read in char.
+				# If digit_place_flag == 0 then flip to 1.
+
+				# Read char from file. 
 				li		$v0, 14		# $v0 = 14
 				move 	$a0, $s4		# $a0 = $s4 ($a0 = file descriptor)
 				move 	$a1, $sp		# $a1 = $sp ($a1 = address of buffer)
 				li		$a2, 1		# $a2 = 1
 				syscall
-				lb		$t0, 0($sp)		# load char into $t0
+				# Load char from buffer and store in board string. 
+				lb		$t0, 0($sp)		# load char into $t0	
 				sb		$t0, 0($s7)		# initialize board string
-				addi	$s7, $s7, 1			# $s7 = $s7 + 1 (increment address of board string)
-				addi	$t1, $t1, 1			# $t1 = $t1 + 1 (i++)
-				blt		$t1, $t2, initialize_board	# if $t1 < $s3 then initialize_board
+
+				# Now, update num_stones.
+				# First, convert char -> int. 
+				addi	$t4, $t0, -48			# $t4 = $t0 + -48 (char -> int)
+
+				# If digit_place_flag == 0, value stays the same.
+				beqz $t6, digit_place_is_0
+				# Else digit_place_flag is 1 so multiply by 10 and add to num_stones. 
+				li		$t3, 10		# $t3 = 10
+				mult	$t3, $t4			# $t3 * $t4 = Hi and Lo registers
+				mflo	$t4					# copy Lo to $t4 ($t4 = value of stones)
+				add		$s1, $t4, $s1		# $s1 = $t4 + $s1 (update num_stones)
+				# Flip digit_place_flag to 0. 
+				li		$t6, 0		# $t6 = 0
+				j		increment				# jump to increment
+				
+				digit_place_is_0:
+					add		$s1, $s1, $t4		# $s1 = $s1 + $t4 (update num_stones)
+					li		$t6, 1		# $t6 = 1 (flip digit_place_flag to 0)
+
+				increment:
+					addi	$s7, $s7, 1			# $s7 = $s7 + 1 (increment address of board string)
+					addi	$t1, $t1, 1			# $t1 = $t1 + 1 (i++)
+					blt		$t1, $t2, initialize_board	# if $t1 < $s3 then initialize_board
 			# *** End of initialize_board loop ***
 			
 			# If line is not line 5, then move on to next line.
@@ -116,7 +155,7 @@ load_game:
 			# Return total number of pockets.
 			li		$t0, 2		# $t0 = 2
 			mult	$s3, $t0			# $s3 * $t0 = Hi and Lo registers
-			mflo	$v1					# copy Lo to $v1
+			mflo	$t7					# copy Lo to $v1
 			j		postamble				# jump to postamble
 			
 			line1:
@@ -150,6 +189,7 @@ load_game:
 				mflo	$t1					# copy Lo to $t1 ($t1 = proper value of first digit)
 				add		$t1, $t1, $t0		# $t1 = $t1 + $t0 ($t1 = # of stones in top_mancala)
 				sb		$t1, 1($s0)		# intialize top_mancala in state
+				add		$s1, $s1, $t1		# $s1 = $s1 + $t1 (update # of stones)
 				
 				while_newline:
 					# Read next char.
@@ -180,7 +220,8 @@ load_game:
 					
 					addi	$s5, $s5, -48			# $s5 = $s5 + -48 (char -> int)
 					sb		$s5, 1($s0)		# intitialize top_mancala in state
-
+					add		$s1, $s1, $s5		# $s1 = $s1 + $s5 (update # of stones)
+					
 					# If $t0 is the last digit in the line then read_file. 
 					li		$t1, '\n' 		# $t1 = '\n'
 					beq		$t0, $t1, read_file	# if $t0 == $t1 then read_file 
@@ -212,6 +253,8 @@ load_game:
 				mflo	$t1					# copy Lo to $t1
 				add		$s6, $t1, $t0		# $s6 = $t1 + $t0 ($s6 = # of stones in bot_mancala)
 				sb		$s6, 0($s0)		# initialize bot_mancala in state
+				add		$s1, $s1, $s6		# $s1 = $s1 + $s6 (update the number of stones)
+				
 				# Get to the end of the line. 
 				j		while_newline				# jump to while_newline
 				
@@ -223,7 +266,8 @@ load_game:
 					# Let's save it as an int. 
 					addi	$s6, $s5, -48			# $s6 = $s5 + -48 (char -> int)
 					sb		$s6, 0($s0)		# initialize bot_mancala in state
-
+					add		$s1, $s6, $s1		# $s6 = $s6 + $s1 (update the number of stones)
+					
 					# If $t0 is the last digit in the line then read_file. 
 					li		$t1, '\n'		# $t1 = '\n'
 					beq		$t0, $t1, read_file	# if $t0 == $t1 then read_file
@@ -253,11 +297,23 @@ load_game:
 				mult	$s5, $t1			# $s5 * $t1 = Hi and Lo registers
 				mflo	$t1					# copy Lo to $t1
 				add		$s5, $t1, $t0		# $s5 = $t1 + $t0 ($s6 = # of pockets)
-				sb		$s5, 2($s0)		# initialize bot_pockets
-				sb		$s5, 3($s0)		# initialize top_pockets 
-				move 	$s3, $s5		# $s3 = $s5 (save # of pockets)
-				# Get to the end of the line. 
-				j		while_newline				# jump to while_newline
+				# Check to make sure that we don't have more than 98 pockets
+				li		$t1, 98		# $t1 = 98
+				bgt		$s5, $t1, too_many_pockets	# if $s5 > $t1 then too_many_pockets
+				# Else, let $t7 = $s6 (return the number of pockets)
+				move 	$t7, $s5		# $t7 = $s5
+				j		initialize_pockets				# jump to initialize_pockets
+				
+				too_many_pockets:
+					# Let $t7 be the return value for $v1. 
+					li		$t7, 0		# $t7 = 0 (return 0)
+					
+				initialize_pockets:
+					sb		$s5, 2($s0)		# initialize bot_pockets
+					sb		$s5, 3($s0)		# initialize top_pockets 
+					move 	$s3, $s5		# $s3 = $s5 (save # of pockets)
+					# Get to the end of the line. 
+					j		while_newline				# jump to while_newline
 				
 				end_line3:
 					# Intitialize bot_pockets and top_pockets in state. 
@@ -271,18 +327,41 @@ load_game:
 					beq		$t0, $t1, read_file	# if $t0 == $t1 then read_file
 					# Else, loop to the last digit in the line. 
 					j		while_newline				# jump to while_newline
-
+	file_dne:
+		li		$v0, -1		# $v0 = -1 (return -1)
+		li		$v1, -1		# $v1 = -1 (return -1)
+		
 	postamble:
-		lw		$s0, 0($sp)
-		lw		$s1, 0($sp)		
-		lw		$s2, 0($sp)		
-		lw		$s3, 0($sp)		 
-		lw		$s4, 0($sp)		
-		lw		$s5, 0($sp)		
-		lw		$s6, 0($sp)		 
-		lw		$s7, 0($sp)		
-		addi	$sp, $sp, 28		# $sp = $sp + 28
-		jr $ra
+		# Close the file.
+		li		$v0, 16		# $v0 = 16
+		move 	$a0, $s4		# $a0 = $s4 ($a0 = file descriptor)
+		syscall
+		addi	$sp, $sp, 4			# $sp = $sp + 4 (reallocate memory on stack)
+
+		# If num_stones > 99 then return 0 in $v0.  
+		li		$t0, 99		# $t0 = 99
+		bgt		$s1, $t0, too_many_stones	# if $s1 > $t0 then too_many_stones
+		# Else, return 1 in $v0.
+		li		$v0, 1		# $v0 = 1
+		j		restore_registers				# jump to restore_registers
+		
+		too_many_stones:
+			li		$v0, 0		# $v0 = 0
+			
+		
+		restore_registers:
+			move 	$v1, $t7		# $v1 = $t7 (return num_pockets)
+			# Restore registers. 
+			lw		$s0, 0($sp)
+			lw		$s1, 0($sp)		
+			lw		$s2, 0($sp)		
+			lw		$s3, 0($sp)		 
+			lw		$s4, 0($sp)		
+			lw		$s5, 0($sp)		
+			lw		$s6, 0($sp)		 
+			lw		$s7, 0($sp)		
+			addi	$sp, $sp, 28		# $sp = $sp + 28
+			jr $ra
 get_pocket:
 	jr $ra
 set_pocket:
