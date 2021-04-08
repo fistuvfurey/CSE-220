@@ -363,7 +363,83 @@ load_game:
 			addi	$sp, $sp, 28		# $sp = $sp + 28
 			jr $ra
 get_pocket:
-	jr $ra
+	# Preamble
+	addi	$sp, $sp, -16			# $sp = $sp + -16
+	sw		$s0, 0($sp)		# state
+	sw		$s1, 4($sp)		# player 
+	sw		$s2, 8($sp)		# distance
+	sw		$s3, 12($sp)		# base address of board string 
+	
+	# Save arguments
+	move 	$s0, $a0		# $s0 = $a0
+	move 	$s1, $a1		# $s1 = $a1
+	move 	$s2, $a2		# $s2 = $a2
+	
+	# Get base address of board string. 
+	addi	$s3, $s0, 6			# $s3 = $s0 + 6
+	
+	# Check to see what player we have.
+	li		$t0, 'T'		# $t1 = 'T'
+	beq		$s1, $t0, is_t_player	# if $s1 == $t0 then is_t_player
+	li		$t0, 'B'		# $t0 = 'B'
+	beq		$s1, $t0, is_b_player	# if $s1 == $t0 then is_b_player
+	# Else, player is invalid. 
+	li		$v0, -1		# $v0 = -1 (return -1)
+	j		return_pocket				# jump to return_pocket
+	
+	is_t_player:
+		# Is top player. 
+		# We are looking at the top row. 
+		addi	$s3, $s3, 2			# $s3 = $s3 + 2 (skip the first two chars of the string since those are the top_mancala)
+		# Get the first char of the pocket.
+		# Multiply distance by 2.
+		li		$t0, 2		# $t0 = 2
+		mult	$t0, $s2			# $t0 * $s2 = Hi and Lo registers
+		mflo	$t0					# copy Lo to $t0
+		add		$s3, $s3, $t0		# $s3 = $s3 + $t0 ($s3 = first char of pocket)
+		j		get_stones				# jump to get_stones
+		
+	is_b_player:
+		# Is bottom player.
+		# We are looking at the bottom row. 
+		# We first need to grab top_pockets from GameState. 
+		lb		$t0, 3($s0)		# load top_pockets.
+		# Get address of first char of pocket. 
+		# Multiply top_pockets by 2.
+		li		$t1, 2		# $t1 = 2
+		mult	$t0, $t1			# $t0 * $t1 = Hi and Lo registers
+		mflo	$t1					# copy Lo to $t1
+		add		$t1, $t1, $t1		# $t1 = $t1 + $t1 (double to account for bot_pockets)
+		# Add 2 to account for top_mancala.
+		addi	$t1, $t1, 2			# $t1 = $t1 + 2
+		# Multiply distance by 2. 
+		li		$t0, 2		# $t0 = 2
+		mult	$t0, $s2			# $t0 * $s2 = Hi and Lo registers
+		mflo	$t0					# copy Lo to $t0
+		# Subtract distance from offset.
+		sub		$t1, $t1, $t0		# $t1 = $t1 - $t0
+		addi	$t1, $t1, -2			# $t1 = $t1 + -2 (now we have offset for first digit char)
+		# Add offset to base address. 
+		add		$s3, $s3, $t1		# $s3 = $s3 + $t1 (add offset to base address to get address of first char of pocket. 
+		j		get_stones				# jump to get_stones
+		
+	get_stones:
+		# $s3 = address of first char in pocket.
+		lb		$t1, 0($s3)		# load first char
+		addi	$t1, $t1, -48			# $t1 = $t1 + -48 (convert char -> int) 
+		lb		$t2, 1($s3)		# load second char
+		addi	$t2, $t2, -48			# $t2 = $t2 + -48 (convert char -> int) 
+		
+		# Multiply first digit by 10 then add second digit to get proper value.
+		li		$t0, 10		# $t0 = 10
+		mult	$t0, $t1			# $t0 * $t1 = Hi and Lo registers
+		mflo	$t1					# copy Lo to $t1 ($t1 = first digit with proper value)
+		
+		add		$v0, $t1, $t2		# $v0 = $t1 + $t2 ($v0 = num_stones in pocket)
+		j		return_pocket				# jump to return_pocket
+		
+	return_pocket:
+		jr $ra
 set_pocket:
 	jr $ra
 collect_stones:
