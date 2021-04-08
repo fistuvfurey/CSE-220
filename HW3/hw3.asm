@@ -10,15 +10,15 @@
 
 load_game:
 	# Preamble
-	addi	$sp, $sp, -28			# $sp = $sp + -28
+	addi	$sp, $sp, -32			# $sp = $sp + -32
 	sw		$s0, 0($sp)		# address of state
-	sw		$s1, 0($sp)		# num_stones
-	sw		$s2, 0($sp)		# line_number
-	sw		$s3, 0($sp)		# # of pockets 
-	sw		$s4, 0($sp)		# file_descriptor
-	sw		$s5, 0($sp)		# current_char
-	sw		$s6, 0($sp)		# number of stones in bot_mancala
-	sw		$s7, 0($sp)		# address of board string
+	sw		$s1, 4($sp)		# num_stones
+	sw		$s2, 8($sp)		# line_number
+	sw		$s3, 12($sp)		# # of pockets 
+	sw		$s4, 16($sp)		# file_descriptor
+	sw		$s5, 20($sp)		# current_char
+	sw		$s6, 24($sp)		# number of stones in bot_mancala
+	sw		$s7, 28($sp)		# address of board string
 	
 
 	move 	$s0, $a0		# $s0 = $a0 (save the address of state)
@@ -385,14 +385,14 @@ load_game:
 			# Restore registers. 
 			return:
 				lw		$s0, 0($sp)
-				lw		$s1, 0($sp)		
-				lw		$s2, 0($sp)		
-				lw		$s3, 0($sp)		 
-				lw		$s4, 0($sp)		
-				lw		$s5, 0($sp)		
-				lw		$s6, 0($sp)		 
-				lw		$s7, 0($sp)		
-				addi	$sp, $sp, 28		# $sp = $sp + 28
+				lw		$s1, 4($sp)		
+				lw		$s2, 8($sp)		
+				lw		$s3, 12($sp)		 
+				lw		$s4, 16($sp)		
+				lw		$s5, 20($sp)		
+				lw		$s6, 24($sp)		 
+				lw		$s7, 28($sp)		
+				addi	$sp, $sp, 32		# $sp = $sp + 32
 				jr $ra
 get_pocket:
 	# Preamble
@@ -486,7 +486,101 @@ get_pocket:
 		addi	$sp, $sp, 20			# $sp = $sp + 20
 		jr $ra
 set_pocket:
-	jr $ra
+	# Preamble
+	addi	$sp, $sp, -28			# $sp = $sp + -28
+	sw		$s0, 0($sp)		# state
+	sw		$s1, 4($sp)		# player
+	sw		$s2, 8($sp)		# distance
+	sw		$s3, 12($sp)		# size
+	sw		$s4, 16($sp)		# top_pockets
+	sw		$s5, 20($sp)		# game_board string base address
+	sw		$ra, 24($sp)		# store return address
+	
+	# Save arguments
+	move 	$s0, $a0		# $s0 = $a0
+	move 	$s1, $a1		# $s1 = $a1
+	move 	$s2, $a2		# $s2 = $a2
+	move 	$s3, $a3		# $s3 = $a3
+
+	# Get base address of game_board.
+	addi	$s5, $s0, 6			# $s5 = $s0 + 6
+	
+	# Check to see if size is valid.
+	li		$t0, 99		# $t0 = 99
+	bgt		$s3, $t0, invalid_size	# if $s3 > $t0 then invalid_size
+	bltz $s3, invalid_size
+	# Else, size is valid.
+
+	# Validate distance for this board.
+	lb		$s4, 3($s0)		# load top_pockets
+	addi	$t0, $s4, -1			# $t0 = $s4 + -1
+	bgt		$s2, $t0, invalid_set_distance	# if $s2 > $t0 then invalid_set_distance
+	# Else, distance is valid. 
+	# Double distance.
+	add		$s2, $s2, $s2		# $s2 = $s2 + $s2
+	# Check to see what player we have.
+	li		$t0, 'T'		# $t0 = 'T'
+	beq		$t0, $s1, set_pocket_t	# if $t0 == $s1 then set_pocket_t
+	li		$t0, 'B'		# $t0 = 'B'
+	beq		$t0, $s1, set_pocket_b	# if $t0 == $s1 then set_pocket_b
+	# Else, player is invalid.
+	li		$v0, -1		# $v0 = -1
+	j		return_set_pocket				# jump to return_set_pocket
+	
+	set_pocket_t:
+		# Convert int size to char.
+		move 	$a0, $s3		# $a0 = $s3
+		jal		convert_to_char				# jump to convert_to_char and save position to $ra
+		move 	$t0, $v0		# $t0 = $v0 (first digit char)
+		move 	$t1, $v1		# $t1 = $v1 (second digit char)
+		# $s5 = base address of game_board
+		addi	$s5, $s5, 2			# $s5 = $s5 + 2 (skip the first two chars of the string since those are the top_mancala)
+		add		$s5, $s5, $s2		# $s5 = $s5 + $s2 (add offset to base address of string)
+		j		set_stones				# jump to set_stones
+	
+	set_pocket_b:
+		# Convert int size to char. 
+		move 	$a0, $s3		# $a0 = $s3
+		jal		convert_to_char				# jump to convert_to_char and save position to $ra
+		move 	$t0, $v0		# $t0 = $v0 (first digit char)
+		move 	$t1, $v1		# $t1 = $v1 (second digit char)
+		# Double top_pockets
+		add		$s4, $s4, $s4		# $s4 = $s4 + $s4
+		# Double again to account for bot_pockets
+		add		$s4, $s4, $s4		# $s4 = $s4 + $s4
+		addi	$s4, $s4, 2			# $s4 = $s4 + 2 (add 2 to account for top_mancala)
+		sub		$s4, $s4, $s2		# $s4 = $s4 - $s2 (sub distance from offset)
+		addi	$s4, $s4, -2			# $s4 = $s4 + -2 (now we have address of first digit)
+		add		$s5, $s5, $s4		# $s5 = $s5 + $s4 (add offset to base address)
+		j		set_stones				# jump to set_stones
+
+	set_stones:
+		# $s5 = address of string with proper offset
+		# $t0 = first digit char
+		# $t1 = second digit char
+		sb		$t0, 0($s5)		# store first char in game_board
+		sb		$t1, 1($s5)		# store second char in game_board
+		move	$v0, $s3		# $v0 = $s3
+		j		return_set_pocket				# jump to return_set_pocket
+
+	invalid_set_distance:
+		li		$v0, -1		# $v0 = -1
+		j		return_set_pocket				# jump to return_set_pocket
+		
+	invalid_size:
+		li		$v0, -2		# $v0 = -2
+		j		return_set_pocket				# jump to return_set_pocket
+			
+	return_set_pocket:
+		lw		$s0, 0($sp)		
+		lw		$s1, 4($sp)
+		lw		$s2, 8($sp)
+		lw		$s3, 12($sp)
+		lw		$s4, 16($sp)
+		lw		$s5, 20($sp)		
+		lw		$ra, 24($sp)		
+		addi	$sp, $sp, 28			# $sp = $sp + 20
+		jr $ra
 collect_stones:
 	jr $ra
 verify_move:
@@ -505,6 +599,27 @@ print_board:
 	jr $ra
 write_board:
 	jr $ra
+
+convert_to_char:
+	# Converts a two digit integer to char
+	move 	$t0, $a0		# $t0 = $a0 (int to convert)
+	# Divide by 10. 
+	li		$t1, 10		# $t1 = 10
+	div		$t0, $t1			# $t0 / $t1
+	mflo	$t2					# $t2 = floor($t0 / $t1)
+	mfhi	$t3					# $t3 = $t0 mod $t1 
+	# $t2 = first digit int
+	# $t3 = second digit int
+	addi	$t2, $t2, 48			# $t2 = $t2 + 48 (int -> char)
+	addi	$t3, $t3, 48			# $t3 = $t3 + 48 (int -> char)
+	# Return 
+	move 	$v0, $t2		# $v0 = $t2 (return first digit char)
+	move 	$v1, $t3		# $v1 = $t3 (return 2nd digit char)
+	jr		$ra					# jump to $ra
+	
+	
+	
+	
 	
 ############################ DO NOT CREATE A .data SECTION ############################
 ############################ DO NOT CREATE A .data SECTION ############################
