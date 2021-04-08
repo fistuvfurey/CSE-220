@@ -151,13 +151,19 @@ load_game:
 			sb		$t0, 5($s0)		# initialize player_turn to 'B'
 
 			# Finished initializing GameState succcesfully.
-			li		$v0, 1		# $v0 = 1 (return 1)
+			li		$t0, 1		# $t0 = 1
+			beq		$t7, $t0, too_many_pockets_error	# if $t7 == $t0 then too_many_stones_error
+			# Else, we have a valid number of pockets. 
 			# Return total number of pockets.
 			li		$t0, 2		# $t0 = 2
 			mult	$s3, $t0			# $s3 * $t0 = Hi and Lo registers
 			mflo	$t7					# copy Lo to $v1
 			j		postamble				# jump to postamble
 			
+			too_many_pockets_error:
+				li		$t7, 0		# $t7 = 0
+				j		postamble				# jump to postamble
+				
 			line1:
 				# Read next char, see if it is a second digit or a newline char. 
 				li		$v0, 14		# $v0 = 14
@@ -199,12 +205,27 @@ load_game:
 					li		$a2, 1		# $a2 = 1 (the maximum chars to read is 1)
 					syscall
 					lb		$t0, 0($sp)		# load next char into $t0	
-					# If char == '\n' then the char immediately after is the first char of line 3. 
+					# If char == '\n' then the char immediately after is the first char of next line. 
 					# line_number++ and jump to read_file.
 					li		$t1, '\n'		# $t1 = '\n'
 					beq		$t0, $t1, is_last_char	# if $t0 == $t1 then is_last_char
-					# Else, it is not the last char of line and we need to loop again to read the next char.
-					j		while_newline				# jump to while_newline
+					# Else, the char may be a '\r' char.
+					# If it is, loop again to discard it.
+					li		$t1, '\r'		# $t1 = '\r'
+					beq		$t0, $t1, while_newline	# if $t0 == $t1 then while_newline
+					# Else, the char is another digit. We cannot have another digit so there is an error.
+					# Check what line number we are on.
+					# If we are on line 1 or 2 then there are too many stones in the mancalas.
+					li		$t1, 1		# $t1 = 1
+					beq		$s2, $t1, line12_error	# if $s2 == $t1 then line12_error
+					# Else, we must be on line 3 and there are too many pockets.
+					j		too_many_pockets_error				# jump to too_many_pockets_error
+					
+					line12_error:
+						li		$t6, 0		# $t6 = 0 (return value for $v0)
+						# Get to the end of the line.
+						j		while_newline				# jump to while_newline
+						
 					is_last_char:
 						addi	$s2, $s2, 1			# $s2 = $s2 + 1 (line_number++)
 						j		read_file				# jump to read_file
@@ -224,10 +245,14 @@ load_game:
 					
 					# If $t0 is the last digit in the line then read_file. 
 					li		$t1, '\n' 		# $t1 = '\n'
-					beq		$t0, $t1, read_file	# if $t0 == $t1 then read_file 
+					beq		$t0, $t1, last_char	# if $t0 == $t1 then last_char
 					# Else, loop to last digit in line. 
 					j		while_newline				# jump to while_newline 
-					
+
+					last_char:
+						addi	$s2, $s2, 1			# $s2 = $s2 + 1
+						 j		read_file				# jump to read_file
+						 
 			line2:
 				# Read next char, see if it is a second digit or a newline char.
 				li		$v0, 14		# $v0 = 14
@@ -268,9 +293,9 @@ load_game:
 					sb		$s6, 0($s0)		# initialize bot_mancala in state
 					add		$s1, $s6, $s1		# $s6 = $s6 + $s1 (update the number of stones)
 					
-					# If $t0 is the last digit in the line then read_file. 
+					# If $t0 is the last digit in the line then last_char. 
 					li		$t1, '\n'		# $t1 = '\n'
-					beq		$t0, $t1, read_file	# if $t0 == $t1 then read_file
+					beq		$t0, $t1, last_char	# if $t0 == $t1 then last_char
 					# Else, loop to the last digit in the line. 
 					j		while_newline				# jump to while_newline
 			
@@ -296,17 +321,18 @@ load_game:
 				li		$t1, 10		# $t1 = 10
 				mult	$s5, $t1			# $s5 * $t1 = Hi and Lo registers
 				mflo	$t1					# copy Lo to $t1
-				add		$s5, $t1, $t0		# $s5 = $t1 + $t0 ($s6 = # of pockets)
-				# Check to make sure that we don't have more than 98 pockets
+				add		$s5, $t1, $t0		# $s5 = $t1 + $t0 ($5 = # of pockets)
+				# Mutiply pockets by 2 to get total pockets. 
+				li		$t1, 2		# $t1 = 2
+				mult	$s5, $t1			# $s5 * $t1 = Hi and Lo registers
+				mflo	$t3					# copy Lo to $t3
+				# Check to make sure that we don't have more than 98 pockets.
 				li		$t1, 98		# $t1 = 98
-				bgt		$s5, $t1, too_many_pockets	# if $s5 > $t1 then too_many_pockets
+				bgt		$t3, $t1, too_many_pockets_error	# if $t3 > $t1 then too_many_pockets_error
 				# Else, let $t7 = $s6 (return the number of pockets)
 				move 	$t7, $s5		# $t7 = $s5
 				j		initialize_pockets				# jump to initialize_pockets
 				
-				too_many_pockets:
-					# Let $t7 be the return value for $v1. 
-					li		$t7, 0		# $t7 = 0 (return 0)
 					
 				initialize_pockets:
 					sb		$s5, 2($s0)		# initialize bot_pockets
@@ -322,14 +348,16 @@ load_game:
 					sb		$s5, 2($s0)		# initialize bot_pockets
 					sb		$s5, 3($s0)		# initialize top_pockets
 					move 	$s3, $s5		# $s3 = $s5 (save # of pockets)
-					# If $t0 is the last digit in the line then read_file
+					# If $t0 is the last digit in the line then last_char
 					li		$t1, '\n'		# $t1 = '\n'
-					beq		$t0, $t1, read_file	# if $t0 == $t1 then read_file
+					beq		$t0, $t1, last_char	# if $t0 == $t1 then last_char
 					# Else, loop to the last digit in the line. 
 					j		while_newline				# jump to while_newline
+
 	file_dne:
 		li		$v0, -1		# $v0 = -1 (return -1)
 		li		$v1, -1		# $v1 = -1 (return -1)
+		j		return				# jump to return
 		
 	postamble:
 		# Close the file.
@@ -337,7 +365,8 @@ load_game:
 		move 	$a0, $s4		# $a0 = $s4 ($a0 = file descriptor)
 		syscall
 		addi	$sp, $sp, 4			# $sp = $sp + 4 (reallocate memory on stack)
-
+		# If $t6 = 0, then there were too many stones in the mancalas.
+		beqz $t6, too_many_stones
 		# If num_stones > 99 then return 0 in $v0.  
 		li		$t0, 99		# $t0 = 99
 		bgt		$s1, $t0, too_many_stones	# if $s1 > $t0 then too_many_stones
@@ -347,21 +376,24 @@ load_game:
 		
 		too_many_stones:
 			li		$v0, 0		# $v0 = 0
+			j		restore_registers				# jump to restore_registers
 			
-		
+
+			
 		restore_registers:
 			move 	$v1, $t7		# $v1 = $t7 (return num_pockets)
 			# Restore registers. 
-			lw		$s0, 0($sp)
-			lw		$s1, 0($sp)		
-			lw		$s2, 0($sp)		
-			lw		$s3, 0($sp)		 
-			lw		$s4, 0($sp)		
-			lw		$s5, 0($sp)		
-			lw		$s6, 0($sp)		 
-			lw		$s7, 0($sp)		
-			addi	$sp, $sp, 28		# $sp = $sp + 28
-			jr $ra
+			return:
+				lw		$s0, 0($sp)
+				lw		$s1, 0($sp)		
+				lw		$s2, 0($sp)		
+				lw		$s3, 0($sp)		 
+				lw		$s4, 0($sp)		
+				lw		$s5, 0($sp)		
+				lw		$s6, 0($sp)		 
+				lw		$s7, 0($sp)		
+				addi	$sp, $sp, 28		# $sp = $sp + 28
+				jr $ra
 get_pocket:
 	# Preamble
 	addi	$sp, $sp, -20			# $sp = $sp + -20
