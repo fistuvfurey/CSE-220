@@ -364,17 +364,22 @@ load_game:
 			jr $ra
 get_pocket:
 	# Preamble
-	addi	$sp, $sp, -16			# $sp = $sp + -16
+	addi	$sp, $sp, -20			# $sp = $sp + -20
 	sw		$s0, 0($sp)		# state
 	sw		$s1, 4($sp)		# player 
 	sw		$s2, 8($sp)		# distance
 	sw		$s3, 12($sp)		# base address of board string 
+	sw		$s4, 16($sp)		# top_pockets
 	
 	# Save arguments
 	move 	$s0, $a0		# $s0 = $a0
 	move 	$s1, $a1		# $s1 = $a1
 	move 	$s2, $a2		# $s2 = $a2
 	
+	lb		$s4, 3($s0)		# load top_pockets
+	addi	$t0, $s4, -1			# $t0 = $s4 + -1
+	bgt		$s2, $t0, invalid_distance	# if $s2 > $t0 then invalid_distance
+	# Else, distance is valid. Continue.
 	# Get base address of board string. 
 	addi	$s3, $s0, 6			# $s3 = $s0 + 6
 	
@@ -402,12 +407,10 @@ get_pocket:
 	is_b_player:
 		# Is bottom player.
 		# We are looking at the bottom row. 
-		# We first need to grab top_pockets from GameState. 
-		lb		$t0, 3($s0)		# load top_pockets.
 		# Get address of first char of pocket. 
 		# Multiply top_pockets by 2.
 		li		$t1, 2		# $t1 = 2
-		mult	$t0, $t1			# $t0 * $t1 = Hi and Lo registers
+		mult	$s4, $t1			# $s4 * $t1 = Hi and Lo registers
 		mflo	$t1					# copy Lo to $t1
 		add		$t1, $t1, $t1		# $t1 = $t1 + $t1 (double to account for bot_pockets)
 		# Add 2 to account for top_mancala.
@@ -438,7 +441,17 @@ get_pocket:
 		add		$v0, $t1, $t2		# $v0 = $t1 + $t2 ($v0 = num_stones in pocket)
 		j		return_pocket				# jump to return_pocket
 		
+	invalid_distance:
+		li		$v0, -1		# $v0 = -1
+		
 	return_pocket:
+		# Postamble
+		lw		$s0, 0($sp)
+		lw		$s1, 4($sp)
+		lw		$s2, 8($sp)
+		lw		$s3, 12($sp)
+		lw		$s4, 16($sp)
+		addi	$sp, $sp, 20			# $sp = $sp + 20
 		jr $ra
 set_pocket:
 	jr $ra

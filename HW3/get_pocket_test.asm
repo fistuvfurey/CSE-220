@@ -1,6 +1,6 @@
 .data
-player: .byte 'D'
-distance: .byte 3
+player: .byte 'T'
+distance: .byte 6
 .align 2
 state:        
     .byte 0         # bot_mancala       	(byte #0)
@@ -11,7 +11,7 @@ state:
     .byte 'B'    # player_turn        		(byte #5)
     # game_board                     		(bytes #6-end)
     .asciiz
-    "0104040404040420010240000500"
+    "0104040407040820010240000500"
 .text
 .globl main
 main:
