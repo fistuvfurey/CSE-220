@@ -661,7 +661,77 @@ collect_stones:
 		addi	$sp, $sp, 20			# $sp = $sp + 20
 		jr $ra
 verify_move:
-	jr  $ra
+	addi	$sp, $sp, -20			# $sp = $sp + -20
+	sw		$s0, 0($sp)		# state
+	sw		$s1, 4($sp)		# origin_pocket
+	sw		$s2, 8($sp)		# distance
+	sw		$s3, 12($sp)		# current_player
+	sw		$ra, 16($sp)		# save return address
+		
+	# Save arguments
+	move 	$s0, $a0		# $s0 = $a0
+	move 	$s1, $a1		# $s1 = $a1
+	move 	$s2, $a2		# $s2 = $a2
+	
+	lb		$s3, 5($s0)		# load current_player
+	
+	# If distance == 99
+	li		$t0, 99		# $t0 = 99
+	beq		$t0, $s2, distance_is_99	# if $t0 == $s2 then distance_is_99
+
+	# If origin_pocket >= pockets
+	lb		$t0, 2($s0)		# load pockets
+	bge		$s1, $t0, origin_pocket_invalid	# if $s1 >= $t0 then origin_pocket_invalid
+	
+	# Get stones in origin_pocket
+	move 	$a0, $s0		# $a0 = $s0 (pass state)
+	move 	$a1, $s3		# $a1 = $s3 (pass current_player)
+	move 	$a2, $s1		# $a2 = $s1 (pass origin_pocket)
+	jal		get_pocket				# jump to get_stones and save position to $ra
+	# If origin_pocket has no stones, return 0. 
+	# $v0 = stones in origin_pocket
+	beqz $v0, return_verify_move
+	# If distance != stones in origin_pocket
+	bne		$s2, $v0, distance_error	# if $s2 != $v0 then distance_error
+	# If distance == 0
+	beqz $s2, distance_error
+
+	# Else, move does not violate any game rules. Return 1. 
+	li		$v0, 1		# $v0 = 1
+	j		return_verify_move				# jump to return_verify_move
+	
+	distance_error:
+		li		$v0, -2		# $v0 = -2
+		j		return_verify_move				# jump to return_verify_move
+		
+	origin_pocket_invalid:
+		li		$v0, -1		# $v0 = -1
+		j		return_verify_move				# jump to return_verify_move
+		
+	distance_is_99:
+		# Return 2
+		li		$v0, 2		# $v0 = 2
+		# Change player turn in state.
+		# If current_player == 'T'
+		li		$t0, 'T'		# $t0 = 'T'
+		beq		$t0, $s3, flip_to_b	# if $t0 == $s3 then flip_to_b
+		# Else, current_player == 'B'
+		sb		$t0, 5($s0)		# set player to 'T'
+		j		return_verify_move				# jump to return_verify_move
+		
+		flip_to_b:
+			li		$t0, 'B'		# $t0 = 'B'
+			sb		$t0, 5($s0)		# set player to 'B'
+			j		return_verify_move				# jump to return_verify_move
+			
+	return_verify_move:
+		lw		$s0, 0($sp)	
+		lw		$s1, 4($sp)
+		lw		$s2, 8($sp)
+		lw		$s3, 12($sp)
+		lw		$ra, 16($sp)		
+		addi	$sp, $sp, 20			# $sp = $sp + 20
+		jr  $ra
 execute_move:
 	jr $ra
 steal:
