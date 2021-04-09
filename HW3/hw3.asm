@@ -582,7 +582,84 @@ set_pocket:
 		addi	$sp, $sp, 28			# $sp = $sp + 20
 		jr $ra
 collect_stones:
-	jr $ra
+	addi	$sp, $sp, -20			# $sp = $sp + -20
+	sw		$s0, 0($sp)		# state
+	sw		$s1, 4($sp)		# player
+	sw		$s2, 8($sp)		# stones
+	sw		$s3, 12($sp)		# base addres of game_board string
+	sw		$ra, 16($sp)		# save return address
+	
+	# Save arguments
+	move 	$s0, $a0		# $s0 = $a0
+	move 	$s1, $a1		# $s1 = $a1
+	move 	$s2, $a2		# $s2 = $a2
+
+	# Validate stones
+	blez $s2, invalid_stones
+
+	addi	$s3, $s0, 6			# $s3 = $s0 + 6 (get base address of game_board)
+	
+	# Check which player we have. 
+	li		$t0, 'T'		# $t0 = 'T'
+	beq		$t0, $s1, collect_stones_t	# if $t0 == $s1 then collect_stones_t
+	li		$t0, 'B'		# $t0 = 'B'
+	beq		$t0, $s1, collect_stones_b	# if $t0 == $s1 then collect_stones_b
+	# Else, invalid player.
+	li		$v0, -1		# $v0 = -1
+	j		return_collect_stones				# jump to return_collect_stones
+	
+	collect_stones_t:
+		# First update top_mancala in state.
+		lb		$t0, 1($s0)		# load stones from top_mancala
+		
+		add		$t0, $t0, $s2		# $t0 = $t0 + $s2 (add stones to mancala)
+		sb		$t0, 1($s0)		# store stones in top_mancala
+		# $t0 = updated stones in top_mancala.
+		# Convert to two digit char
+		move 	$a0, $t0		# $a0 = $t0
+		jal		convert_to_char				# jump to convert_to_char and save position to $ra
+		move 	$t0, $v0		# $t0 = $v0 (first digit char)
+		move 	$t1, $v1		# $t1 = $v1 (second digit char)
+		sb		$t0, 0($s3)		# update first char of game_board
+		sb		$t1, 1($s3)		# update second char of game_board
+		j		return_collect_stones				# jump to return_collect_stones
+		
+	collect_stones_b:
+		# First update bot_mancala in state. 
+		lb		$t0, 0($s0)		# load stones from bot_mancala
+
+		add		$t0, $t0, $s2		# $t0 = $t0 + $s2 (add stones to mancala)
+		sb		$t0, 0($s0)		# store stones in bot_mancala
+		# $t0 = updated stones in bot_mancala
+		# Convert to two digit char. 
+		move 	$a0, $t0		# $a0 = $t0
+		jal		convert_to_char				# jump to convert_to_char and save position to $ra
+		move 	$t0, $v0		# $t0 = $v0 (first digit char)
+		move 	$t1, $v1		# $t1 = $v1 (second digit char)
+		
+		lb		$t2, 2($s0)		# load pockets
+		add		$t2, $t2, $t2		# $t2 = $t2 + $t2 (double pockets)
+		add		$t2, $t2, $t2		# $t2 = $t2 + $t2 (double pockets again to account for top row)
+
+		add		$s3, $s3, $t2		# $s3 = $s3 + $t2 (add offest to base address)
+		addi	$s3, $s3, 2			# $s3 = $s3 + 2 (add 2 to account for top_mancala)
+		
+		sb		$t0, 0($s3)		# update first digit of bot_mancala in game_board
+		sb		$t1, 1($s3)		# update the second digit of bot_mancala in game_board
+		j		return_collect_stones				# jump to return_collect_stones
+
+	invalid_stones:
+		li		$v0, -2		# $v0 = -2
+		j		return_collect_stones				# jump to return_collect_stones
+		
+	return_collect_stones:
+		lw		$s0, 0($sp)	
+		lw		$s1, 4($sp)
+		lw		$s2, 8($sp)	
+		lw		$s3, 12($sp)	
+		lw		$ra, 16($sp)	
+		addi	$sp, $sp, 20			# $sp = $sp + 20
+		jr $ra
 verify_move:
 	jr  $ra
 execute_move:
