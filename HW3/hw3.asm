@@ -979,8 +979,68 @@ load_moves:
 	jr $ra
 play_game:
 	jr  $ra
-print_board:
-	jr $ra
+print_board:	
+	move 	$t0, $a0		# $t0 = $a0 (save state)
+	addi	$t1, $t0, 6			# $t1 = $t0 + 6 (get base address of game_board)
+	# Print top_mancala
+	lb		$a0, 0($t1)		# load first char
+	# print first char
+	li		$v0, 11		# $v0 = 11
+	syscall
+	# print second char
+	lb		$a0, 1($t1)		# load second char
+	syscall
+	# print newline
+	li		$a0, '\n'		# $a0 = '\n'
+	syscall
+
+	# Print bot_mancala
+	lb		$t2, 3($t0)		# load pockets
+	add		$t2, $t2, $t2		# $t2 = $t2 + $t2 (double pockets)
+	add		$t5, $t2, $t2		# $t5 = $t2 + $t2 (double pockets again to account for top row)
+	add		$t4, $t1, $t5		# $t4 = $t1 + $t5
+	addi	$t4, $t4, 2			# $t4 = $t4 + 2 (get index of bot_mancala)
+
+	# print first char
+	lb		$a0, 0($t4)		# load first char
+	syscall
+	lb		$a0, 1($t4)		# load second char
+	syscall
+	
+	# print newline 
+	li		$a0, '\n'		# $a0 = '\n'
+	syscall
+	
+	# Print rows
+	addi	$t1, $t1, 2			# $t1 = $t1 + 2 add 2 to game_board base address to account for top_mancala
+	li		$t4, 'T'		# $t4 = 'T' (current_row)
+	print_row:
+		# This will loop for pockets * 2 times
+		# $t2 = loop max (pockets * 2)
+		# set loop variable
+		li		$t3, 0		# $t3 = 0 (int i = 0)
+		print_pocket:
+			lb		$a0, 0($t1)		# load char
+			syscall
+
+			addi	$t3, $t3, 1			# $t3 = $t3 + 1 (i++)
+			addi	$t1, $t1, 1			# $t1 = $t1 + 1 (increment address)
+			beq		$t3, $t2, end_loop	# if $t3 == $t2 then end_loop
+			# Else
+			j		print_pocket				# jump to print_pocket
+		end_loop:
+			# If we just printed bottom_row, then return.
+			li		$t5, 'B'		# $t5 = 'B'
+			beq		$t4, $t5, return_print_board	# if $t4 == $t5 then return_print_board
+			# Else, print newline and switch to bottom_row to print
+			move 	$t4, $t5		# $t4 = $t5 (switch to bottom_row)
+			# print newline
+			li		$a0, '\n'		# $a0 = '\n'
+			syscall
+			j		print_row				# jump to print_row
+			
+	return_print_board:
+		jr $ra
 write_board:
 	jr $ra
 
