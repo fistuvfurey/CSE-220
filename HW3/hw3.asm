@@ -733,7 +733,244 @@ verify_move:
 		addi	$sp, $sp, 20			# $sp = $sp + 20
 		jr  $ra
 execute_move:
-	jr $ra
+	addi	$sp, $sp, -32			# $sp = $sp + -32
+	sw		$s0, 0($sp)		# state
+	sw		$s1, 4($sp)		# origin_pocket
+	sw		$s2, 8($sp)		# # of stones added to the mancala
+	sw		$s3, 12($sp)		# return value in $v1
+	sw		$s4, 16($sp)		# # of stones
+	sw		$s5, 20($sp)		# pocket index
+	sw		$s6, 24($sp)		# current row
+	sw		$ra, 28($sp)		# save return address
+
+	# Save arguments
+	move 	$s0, $a0		# $s0 = $a0 (save state)
+	move 	$s1, $a1		# $s1 = $a1 (save origin_pocket)
+
+	# Check what player_turn it is. 
+	li		$t0, 'T'		# $t0 = 'T'
+	lb		$t1, 5($s0)		# load player turn
+	beq		$t1, $t0, is_t_turn	# if $t1 == $t0 then is_t_turn
+	li		$t0, 'B'		# $t0 = 'B'
+	beq		$t0, $t1, is_b_turn	# if $t0 == $t1 then is_b_turn
+	
+	is_t_turn:
+		# Get stones in origin_pocket
+		move 	$a0, $s0		# $a0 = $s0 (pass state)
+		li		$a1, 'T'		# $a1 = 'T' (pass player)		
+		move 	$a2, $s1		# $a2 = $s1 (pass origin_pocket as distance)
+		jal		get_pocket				# jump to get_pocket and save position to $ra
+		move 	$s4, $v0		# $s4 = $v0
+		# Set stones in origin_pocket to 0 
+		move 	$a0, $s0		# $a0 = $s0 (pass state)
+		li		$a1, 'T'		# $a1 = 'T'  
+		move 	$a2, $s1		# $a2 = $s1 (pass origin_pocket as distance)
+		li		$a3, 0		# $a3 = 0 (empty pocket)
+		jal		set_pocket				# jump to set_pocket and save position to $ra
+		# $s4 = # of stones in origin_pocket
+		# Set turn to 'T'
+		li		$s6, 'T'		# $s6 = 'T'
+				
+	is_b_turn:
+		# Get stones in origin_pocket
+		move 	$a0, $s0		# $a0 = $s0 (pass state)
+		li		$a1, 'B'		# $a1 = 'B' (pass player)
+		move 	$a2, $s1		# $a2 = $s1 (pass origin_pocket as distance)
+		jal		get_pocket				# jump to get_pocket and save position to $ra
+		move 	$s4, $v0		# $s4 = $v0
+		# Set stones in origin_pocket to 0 
+		move 	$a0, $s0		# $a0 = $s0 (pass state)
+		li		$a1, 'B'		# $a1 = 'B'  
+		move 	$a2, $s1		# $a2 = $s1 (pass origin_pocket as distance)
+		li		$a3, 0		# $a3 = 0 (empty pocket)
+		jal		set_pocket				# jump to set_pocket and save position to $ra
+
+		# $s4 = # of stones in origin_pocket
+		# Set turn to 'B'
+		li		$s6, 'B'		# $s6 = 'B'
+		
+	move 	$s5, $s1		# $s5 = $s1 (set origin_pocket as starting index) 
+	# $s5 = index
+	execute_move_loop:
+		# If current_row == 'T'
+		li		$t0, 'T'		# $t0 = 'T'
+		beq		$t0, $s6, on_t_row	# if $t0 == $s6 then on_t_row
+		# Else on_b_row
+		# ******* BOTTOM ROW *******
+		addi	$s5, $s5, -1			# $s5 = $s5 + -1 (get next pocket)
+		bltz $s5, at_bot_mancala
+		# Else, deposit stones in the next pocket ($s5)
+		# First check to see if there are no stones in the pocket. 
+		move 	$a0, $s0		# $a0 = $s0 (pass state)
+		li		$a1, 'B'		# $a1 = 'T'
+		move 	$a2, $s5		# $a2 = $s5 (pass index as distance)
+		jal		get_pocket				# jump to get_pocket and save position to $ra
+		# If there are no stones in pocket
+		beqz $v0, no_stones_in_b_pocket
+		# Else, 
+		li		$s3, 0		# $s3 = 0 (return 0)
+		j		add_stone_to_b_pocket				# jump to add_stone_to_b_pocket
+		
+		no_stones_in_b_pocket:
+			# Check to see if this is the current_player's row 
+			lb		$t0, 5($s0)		# load player turn
+			li		$t1, 'B'		# $t1 = 'B'
+			# If current_player == 'B'
+			beq		$t0, $t1, is_b	# if $t0 == $t1 then is_b_player
+			# Else
+			li		$s3, 0		# $s3 = 0 (return 0)
+			j		add_stone_to_b_pocket				# jump to add_stone_to_b_pocket
+			
+			is_b:
+				li		$s3, 1		# $s3 = 1 (load in case we have to return)
+				
+		add_stone_to_b_pocket:
+			# first get stones in pocket 
+			move 	$a0, $s0		# $a0 = $s0 (pass state)
+			li		$a1, 'B'		# $a1 = 'B'
+			move 	$a2, $s5		# $a2 = $s5 (pass index as distance)
+			jal		get_pocket				# jump to get_pocket and save position to $ra
+			addi	$a3, $v0, 1			# $a3 = $v0 + 1 (add one stone to pass into set_pocket)
+			
+			move 	$a0, $s0		# $a0 = $s0 (pass state)
+			li		$a1, 'B'		# $a1 = 'B'
+			move 	$a2, $s5		# $a2 = $s5 (pass index as distance)
+			jal		set_pocket				# jump to set_pocket and save position to $ra
+			addi	$s4, $s4, -1			# $s4 = $s4 + -1
+			# If there are no stones left
+			beqz $s4, return_execute_move
+			# Else
+			j		execute_move_loop				# jump to execute_move_loop
+			
+		at_bot_mancala:
+			# If current_player == 'T' then skip mancala
+			li		$t0, 'T'		# $t0 = 'T'
+			lb		$t1, 5($s0)		# load player_turn
+			beq		$t0, $t1, move_to_t_row	# if $t0 == $t1 then move_to_t_row
+			# Else, current_player is 'B'
+			# Deposit one stone in bot_mancala
+			move 	$a0, $s0		# $a0 = $s0 (pass state)
+			li		$a1, 'B'		# $a1 = 'B'
+			li		$a2, 1		# $a2 = 1 (add one stone)
+			jal		collect_stones				# jump to collect_stones and save position to $ra
+			addi	$s4, $s4, -1			# $s4 = $s4 + -1 (decrement stones)
+			addi	$s2, $s2, 1			# $s2 = $s2 + 1 (increment mancala counter)
+			
+			li		$s3, 2		# $s3 = 2 (return 2 if this is the last deposit)
+			# If stones == 0 then return
+			beqz $s4, return_execute_move
+
+		# Else
+		move_to_t_row:
+			li		$s6, 'T'		# $s6 = 'T'
+			# Set index to top_pockets
+			lb		$s5, 3($s0)		# load top_pockets into index 
+			j		execute_move_loop				# jump to execute_move_loop
+			
+			
+		
+		# ******* TOP ROW *******
+		on_t_row:
+			addi	$s5, $s5, -1			# $s5 = $s5 + -1 (get next pocket)
+			bltz $s5, at_top_mancala
+			# Else, deposit stones in next pocket ($s5)
+			# First check to see if there are no stones in the pocket.
+			move 	$a0, $s0		# $a0 = $s0 (pass state)
+			li		$a1, 'T'		# $a1 = 'T'
+			move 	$a2, $s5		# $a2 = $s5 (pass index as distance)
+			jal		get_pocket				# jump to get_pocket and save position to $ra
+			# If there are no stones in pocket
+			beqz $v0, no_stones_in_t_pocket
+			# Else
+			li		$s3, 0		# $s3 = 0 (return 0)
+			j		add_stone_to_t_pocket				# jump to add_stone_to_t_ocket
+		
+			no_stones_in_t_pocket:
+				# Check to see if this is the current_player's row.
+				lb		$t0, 5($s0)		# load player turn
+				li		$t1, 'T'		# $t1 = 'T'
+				# If current_player == 'T'
+				beq		$t0, $t1, is_t	# if $t0 == $t1 then is_t_player
+				# Else
+				li		$s3, 0		# $s3 = 0 (return 0)
+				j		add_stone_to_t_pocket				# jump to add_stone_to_t_pocket
+				
+				is_t:
+					li		$s3, 1		# $s3 = 1 (load in case we have to return)
+					
+			add_stone_to_t_pocket:
+				# first get stones in pocket 
+				move 	$a0, $s0		# $a0 = $s0 (pass state)
+				li		$a1, 'T'		# $a1 = 'T'
+				move 	$a2, $s5		# $a2 = $s5 (pass index as distance)
+				jal		get_pocket				# jump to get_pocket and save position to $ra
+				addi	$a3, $v0, 1			# $a3 = $v0 + 1 (add one stone to pass into set_pocket)
+
+				move 	$a0, $s0		# $a0 = $s0 (pass state)
+				li		$a1, 'T'		# $a1 = 'T'
+				move 	$a2, $s5		# $a2 = $s5 (pass index as distance) 
+				jal		set_pocket				# jump to set_pocket and save position to $ra
+				addi	$s4, $s4, -1			# $s4 = $s4 + -1
+				# If there are no stones left
+				beqz $s4, return_execute_move
+				# Else,
+				j		execute_move_loop				# jump to execute_move_loop
+				
+			at_top_mancala:
+				# If current_player == 'B' then skip top_mancala. 
+				li		$t0, 'B'		# $t0 = 'B'
+				lb		$t1, 5($s0)		# load player turn
+				beq		$t0, $t1, move_to_b_row	# if $t0 == $t1 then move_to_b_row
+				# Else, current_player is 'T'. 
+				# Deposit one stone in top_mancala
+				move 	$a0, $s0		# $a0 = $s0 (pass state)
+				li		$a1, 'T'		# $a1 = 'T' (player is 'T')
+				li		$a2, 1		# $a2 = 1 (add one stone)
+				jal		collect_stones				# jump to collect_stones and save position to $ra
+				addi	$s4, $s4, -1			# $s4 = $s4 + -1 (decrement stones)
+				addi	$s2, $s2, 1			# $s2 = $s2 + 1 (increment mancala counter)
+				li		$s3, 2		# $v1 = 2 (return 2 if this was the last deposit) 
+				# If stones == 0 then return 
+				beqz $s4, return_execute_move
+				
+			# Else, move_to_b_row
+			move_to_b_row:
+				li		$s6, 'B'		# $s6 = 'B'
+				# Set index to bot_pockets
+				lb		$s5, 2($s0)		# load bot_pockets
+				j		execute_move_loop				# jump to execute_move_loop
+				
+
+		return_execute_move:
+			move 	$v0, $s2		# $v0 = $s2 (return mancala counter)
+			move 	$v1, $s3		# $v1 = $s3
+
+			li		$t0, 2		# $t0 = 2
+			beq		$v1, $t0, take_another_turn	# if $v1 == $t0 then take_another_turn
+			# Else, change turn.
+			lb		$t0, 5($s0)		# load turn
+			# If current turn is 'T'
+			li		$t1, 'T'		# $t1 = 'T'
+			beq		$t0, $t1, change_turn_to_b	# if $t0 == $t1 then change_turn_to_b
+			#  Else current turn is 'B'
+			sb		$t1, 5($s0)		# set turn to 'T'
+			j		take_another_turn				# jump to take_another_turn
+			
+			change_turn_to_b:
+				li		$t0, 'B'		# $t0 = 'B'
+				sb		$t0, 5($s0)		# set turn to 'B'
+
+			take_another_turn:
+				lw		$s0, 0($sp)		 
+				lw		$s1, 4($sp)
+				lw		$s2, 8($sp)
+				lw		$s3, 12($sp)
+				lw		$s4, 16($sp)
+				lw		$s5, 20($sp)
+				lw		$s6, 24($sp)
+				lw		$ra, 28($sp)
+				addi	$sp, $sp, 32			# $sp = $sp + 32
+			jr $ra
 steal:
 	jr $ra
 check_row:
@@ -764,6 +1001,21 @@ convert_to_char:
 	move 	$v1, $t3		# $v1 = $t3 (return 2nd digit char)
 	jr		$ra					# jump to $ra
 	
+convert_to_int:
+	# Converts two chars representing two digits to an int
+	move 	$t0, $a0		# $t0 = $a0	(first char)
+	move 	$t1, $a1		# $t1 = $a1 (first char)
+
+	addi	$t0, $t0, -48			# $t0 = $t0 + -48 (char -> int)
+	addi	$t1, $t1, -48			# $t1 = $t1 + -48 (char -> int)
+
+	# Get proper value of first digit.
+	li		$t2, 10		# $t2 = 10
+	mult	$t0, $t2			# $t0 * $t2 = Hi and Lo registers
+	mflo	$t0					# copy Lo to $t0
+	# $t0 = proper value of first digit.
+	add		$v0, $t1, $t0		# $v0 = $t1 + $t0 (int conversion)
+	jr		$ra					# jump to $ra
 	
 	
 	
