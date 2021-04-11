@@ -965,7 +965,7 @@ execute_move:
 				lb		$t0, 4($s0)		# load moves_executed
 				addi	$t0, $t0, 1			# $t0 = $t0 + 1 (increment)
 				sb		$t0, 4($s0)		# update moves_executed
-				
+
 				lw		$s0, 0($sp)		 
 				lw		$s1, 4($sp)
 				lw		$s2, 8($sp)
@@ -1050,7 +1050,113 @@ steal:
 	jr $ra
 
 check_row:
-	jr $ra
+	addi	$sp, $sp, -24			# $sp = $sp + -24
+	sw		$s0, 0($sp)		# state
+	sw		$s1, 4($sp)		# pockets
+	sw		$s2, 8($sp)		# loop variable
+	sw		$s3, 12($sp)		# current_row
+	sw		$s4, 16($sp)		# mancala to add stones to
+	sw		$ra, 20($sp)		# save return address
+
+	# Save arguments
+	move 	$s0, $a0	# $s0 = a0
+
+	lb		$s1, 3($s0) # load pockets
+	
+	# start with top_row
+	li		$s3, 'T'		# $s3 = 'T'
+	check_both_rows:
+		# int i = 0
+		# while i < pockets (while $s2 < $s1)
+		li		$s2, 0		# $s2 = 0
+		iterate_row:
+			# get stones in pocket
+			# $s2 = pocket
+			move 	$a0, $s0		# $a0 = $s0 (pass state)
+			move 	$a1, $s3		# $a1 = $s3 (pass current_row)
+			move 	$a2, $s2		# $a2 = $s2 (pass loop variable as distance)
+			jal		get_pocket				# jump to get_pocket and save position to $ra
+			# if pocket has stones then break
+			bnez $v0, row_not_empty
+			# else pocket is empty
+			# check next pocket
+			addi	$s2, $s2, 1			# $s2 = $s2 + 1 (i++)
+			# If we just checked the last pocket and the control is here because it was also empty, the entire row is empty.
+			beq		$s2, $s1, row_is_empty	# if $s2 == $s1 then row_is_empty
+			# Else we haven't finished iterating through the entire row yet
+			j		iterate_row				# jump to iterate_row
+
+			row_not_empty:
+				# If current_row == 'T' then check bottom row
+				li		$t0, 'T'		# $t0 = 'T'
+				beq		$s3, $t0, check_bot_row	# if $s3 == $t0 then check_bot_row
+				# Else we have checked both rows and they're both empty
+				j		both_not_empty				# jump to both_not_empty
+				
+				check_bot_row:
+					# Switch row
+					li		$s3, 'B'		# $s3 = 'B'
+					j		check_both_rows				# jump to check_both_rows
+					
+			row_is_empty:
+				# if current_row == 'B' then put all top_row stones in player_2 mancala
+				# if current_row == 'T' then put all bot_row stones in player_1 mancala
+
+				# If current_row == 'B'
+				li		$s4, 'B'		# $s4 = 'B'
+				beq		$s3, $s4, current_row_is_b	# if $s3 == $s4 then current_row_is_b
+				# else current_row is 'T'
+				j		call_get_stones_in_row				# jump to call_get_stones_in_row
+				
+				current_row_is_b:
+					li		$s4, 'T'		# $t0 = 'B' (load 'T' to pass into get_stones_in_row
+					
+				call_get_stones_in_row:
+					move 	$a0, $s0		# $a0 = $s0 (pass state)
+					move 	$a1, $s4		# $a1 = $s4
+					jal		get_stones_in_row				# jump to get_stones_in_row and save position to $ra
+				
+				# $v0 = stones in row
+				# add stones in row to mancala
+				move 	$a0, $s0		# $a0 = $s0 (pass state)
+				move 	$a1, $s4		# $a1 = $s4 (pass player)
+				move 	$a2, $v0		# $a2 = $v0 (pass stones from row)
+				jal		collect_stones				# jump to collect_stones and save position to $ra
+				li		$v0, 1		# $v0 = 1 (return 1 since one row was found to be empty)
+				j		compare_mancalas				# jump to compare_mancalas
+						
+			both_not_empty:
+				li		$v0, 0		# $v0 = 0 (return 0 since no rows were empty)
+
+	compare_mancalas:			
+		# End game
+		# Compare player 1 mancala and player 2 mancala to determine winner
+		lb		$t0, 0($s0)		# load bot_mancala
+		lb		$t1, 1($s0)		# load top_mancala
+
+		beq		$t0, $t1, tie	# if $t0 == $t1 then tie
+		bgt		$t0, $t1, player1_wins	# if $t0 > $t1 then player1_wins
+		# Else player 2 wins
+		li		$v1, 2		# $s5 = 2
+		j		return_check_row				# jump to return_check_row
+					
+		player1_wins:
+			li		$v1, 1		# $s5 = 1
+			j		return_check_row				# jump to return_check_row
+				
+		tie:
+			li		$v1, 0		# $s5 = 0
+
+	return_check_row:
+		lw		$s0, 0($sp)
+		lw		$s1, 4($sp)		
+		lw		$s2, 8($sp)		
+		lw		$s3, 12($sp)		
+		lw		$s4, 16($sp)	
+		lw		$ra, 20($sp)	
+		addi	$sp, $sp, 24			# $sp = $sp + 24
+		jr $ra
+
 load_moves:
 	jr $ra
 play_game:
@@ -1152,6 +1258,54 @@ convert_to_int:
 	# $t0 = proper value of first digit.
 	add		$v0, $t1, $t0		# $v0 = $t1 + $t0 (int conversion)
 	jr		$ra					# jump to $ra
+
+get_stones_in_row:
+	addi	$sp, $sp, -24			# $sp = $sp + -24
+	sw		$s0, 0($sp)		# state
+	sw		$s1, 4($sp)		# row
+	sw		$s2, 8($sp)		# loop variable
+	sw		$s3, 12($sp)		# pockets
+	sw		$s4, 16($sp)		# stones in row (return value)
+	sw		$ra, 20($sp)		# save return address 
+
+	# Save arguments
+	move 	$s0, $a0		# $s0 = $a0
+	move 	$s1, $a1		# $s1 = $a1
+
+	lb		$s3, 2($s0)		# load pockets
+	li		$s4, 0		# $s4 = 0 (set stones in row to)
+	
+	# while i < pockets (while $s2 < $s3)
+	li		$s2, 0		# $s2 = 0 (int i = 0) 
+	iterate_row_get_stones:
+		# get stones in current pocket
+		move 	$a0, $s0		# $a0 = $s0 (pass state)
+		move 	$a1, $s1		# $a1 = $s1 (pass player/row)
+		move 	$a2, $s2		# $a2 = $s2 (pass loop variable as distance)
+		jal		get_pocket				# jump to get_pocket and save position to $ra
+		add		$s4, $s4, $v0		# $s4 = $s4 + $v0 (add stones in pocket to count)
+		addi	$s2, $s2, 1			# $s2 = $s2 + 1 (i++)
+		beq		$s2, $s3, return_stones	# if $s2 == $s3 then return_stones
+		# Else
+		j		iterate_row_get_stones				# jump to iterate_row_get_stones
+		
+	return_stones:
+		move 	$v0, $s4		# $v0 = $s4 (return stones in row)
+		lw		$s0, 0($sp)
+		lw		$s1, 4($sp)
+		lw		$s2, 8($sp)
+		lw		$s3, 12($sp)
+		lw		$s4, 16($sp)
+		lw		$ra, 20($sp)
+		addi	$sp, $sp, 24			# $sp = $sp + 24
+		jr		$ra					# jump to $ra
+		
+				
+
+		
+		
+
+		
 	
 	
 	
