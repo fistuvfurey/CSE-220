@@ -972,7 +972,78 @@ execute_move:
 				addi	$sp, $sp, 32			# $sp = $sp + 32
 			jr $ra
 steal:
+	addi	$sp, $sp, -24			# $sp = $sp + -24
+	sw		$s0, 0($sp)		# state
+	sw		$s1, 4($sp)		# destination_pocket
+	sw		$s2, 8($sp)		# pocket to steal from	
+	sw		$s3, 12($sp)		# player
+	sw		$s4, 16($sp)		# stones addd to mancala
+	sw		$ra, 20($sp)		# save return address
+	
+	# Save arguments
+	move 	$s0, $a0		# $s0 = $a0
+	move 	$s1, $a1		# $s1 = $a1
+	
+	# Get player who is stealing (opposite of player_turn)
+	lb		$t0, 5($s0)		# load player_turn
+	li		$t1, 'T'		# $t1 = 'T'
+	# If player_turn == 'T' then pass player = 'B'
+	beq		$t0, $t1, player_b	# if $t0 == $t1 then pass_b
+	# Else player_turn == 'B' so player = 'T'
+	move 	$s3, $t1		# $s3 = $t1 (set player to 'T')
+	j		empty_destination_pocket				# jump to empty_destination_pocket
+	
+	player_b:
+		li		$s3, 'B'		# $s3 = 'B'
+
+	empty_destination_pocket:
+		move 	$a0, $s0		# $a0 = $s0 (pass state)
+		move 	$a1, $s3		# $a1 = $s3 (pass player)
+		move 	$a2, $s1		# $a2 = $s1 (pass destination_pocket as distance)
+		li		$a3, 0		# $a3 = 0 (set size to 0)
+		jal		set_pocket				# jump to set_pocket and save position to $ra
+	
+	# get pocket to steal from
+	# pocket to steal from = pockets - destination_pocket - 1
+	lb		$t0, 2($s0)		# load pockets
+	sub		$s2, $t0, $s1		# $s2 = $t0 - $s1
+	addi	$s2, $s2, -1			# $s2 = $s2 + -1
+	# $s2 = pocket to steal from 
+	# Get stones from pocket to steal from
+	move 	$a0, $s0		# $a0 = $s0 (pass state)
+	# We will be stealing from player whose turn it currently is in state
+	lb		$a1, 5($s0)		# load player_turn from state
+	move 	$a2, $s2		# $a2 = $s2 (pass pocket_to_steal from as distance)
+	jal		get_pocket				# jump to get_pocket and save position to $ra
+	# $v0 = # of stones we are stealing
+	# add 1 to number of stones to steal to acccount for 1 in the destination_pocket
+	addi	$t0, $v0, 1			# $t0 = $v0 + 1
+	move 	$s4, $v0		# $s4 = $v0 (copy # of stones stolen to return later) 
+	# $t0 = # of stones we are stealing plus one already in destination_pocket
+	# We need to add the # of stones in $t0 to player mancala
+	move 	$a0, $s0		# $a0 = $s0 (pass state)
+	move 	$a1, $s3		# $a1 = $s3 (pass player)
+	move 	$a2, $t0		# $a2 = $t0 (pass stolen stones)
+	jal		collect_stones				# jump to collect_stones and save position to $ra
+	
+	# We need to empty the stolen pocket
+	move 	$a0, $s0		# $a0 = $s0 (pass state)
+	lb		$a1, 5($s0)		# load player_turn
+	move 	$a2, $s2		# $a2 = $s2 (pass pocket to steal from)
+	li		$a3, 0		# $a3 = 0 (set size to 0)
+	jal		set_pocket				# jump to set_pocket and save position to $ra
+	
+	# Postamble
+	move 	$v0, $s4		# $v0 = $s4 (return stones added to mancala)
+	lw		$s0, 0($sp)	
+	lw		$s1, 4($sp)
+	lw		$s2, 8($sp)
+	lw		$s3, 12($sp)
+	lw		$s4, 16($sp)		
+	lw		$ra, 20($sp)
+	addi	$sp, $sp, 24			# $sp = $sp + 24
 	jr $ra
+
 check_row:
 	jr $ra
 load_moves:
