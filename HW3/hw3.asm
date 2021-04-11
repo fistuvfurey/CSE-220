@@ -961,6 +961,11 @@ execute_move:
 				sb		$t0, 5($s0)		# set turn to 'B'
 
 			take_another_turn:
+				# increment moves_executed
+				lb		$t0, 4($s0)		# load moves_executed
+				addi	$t0, $t0, 1			# $t0 = $t0 + 1 (increment)
+				sb		$t0, 4($s0)		# update moves_executed
+				
 				lw		$s0, 0($sp)		 
 				lw		$s1, 4($sp)
 				lw		$s2, 8($sp)
