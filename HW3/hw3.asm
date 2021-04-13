@@ -1158,7 +1158,44 @@ check_row:
 		jr $ra
 
 load_moves:
+	addi	$sp, $sp, -24			# $sp = $sp + -24
+	lw		$s0, 0($sp)		# moves[]
+	lw		$s1, 4($sp)		# columns
+	lw		$s2, 8($sp)		# rows
+	lw		$s3, 12($sp)		# file descriptor
+	lw		$s4, 16($sp)		# line number
+	lw		$s5, 20($sp)		# current_char
+
+	# Save moves[]
+	move 	$s0, $a0	# $s0 = $a0
+	
+	# Open file
+	li		$v0, 13		# $v0 = 13
+	move 	$a0, $a1		# $a0 = $a1 (move address of the filename string)
+	li		$a1, 0		# $a1 = 0 (flag for reading from a file)
+	syscall
+	move 	$s3, $v0		# $s3 = $v0 (save the file descriptor)
+	
+	# If the file descriptor is negative then the file does not exist. 
+	bltz $s3, error_reading_file
+
+	li		$s4, 0		# line number = 0
+	addi	$sp, $sp, -4			# $sp = $sp + -4
+	read_moves_file:
+		# Read the file. 
+		li		$v0, 14		# $v0 = 14
+		move 	$a0, $s3		# $a0 = $s4 ($a0 = file descriptor) 
+		move 	$a1, $sp		# $a1 = $sp ($a1 = address of buffer)
+		li		$a2, 1		# $a2 = 1 (the maximum chars to read is 1)
+		syscall
+		
+
+	
+	error_reading_file:
+		li		$v0, -1		# $v0 = -1
+		
 	jr $ra
+
 play_game:
 	jr  $ra
 print_board:	
@@ -1224,7 +1261,142 @@ print_board:
 	return_print_board:
 		jr $ra
 write_board:
-	jr $ra
+	addi	$sp, $sp, -8			# $sp = $sp + -8
+	sw		$s0, 0($sp)		# file descriptor
+	sw		$s1, 4($sp)		# state
+	
+	# save argument
+	move 	$s1, $a0		# $s1 = $a0
+	
+	# Create string "output.txt" and store on the $sp
+	# String "output.txt" is 10 bytes long
+	addi	$sp, $sp, -10			# $sp = $sp + -10 (allocate 10 bytes)
+	# store "output.txt" on the stack
+	li		$t0, 'o'		
+	sb		$t0, 0($sp)		
+	li		$t0, 'u'		
+	sb		$t0, 1($sp)
+	li		$t0, 't'		
+	sb		$t0, 2($sp)
+	li		$t0, 'p'		
+	sb		$t0, 3($sp)
+	li		$t0, 'u'		
+	sb		$t0, 4($sp)
+	li		$t0, 't'		
+	sb		$t0, 5($sp)
+	li		$t0, '.'		
+	sb		$t0, 6($sp)
+	li		$t0, 't'		
+	sb		$t0, 7($sp)
+	li		$t0, 'x'		
+	sb		$t0, 8($sp)
+	li		$t0, 't'	
+	sb		$t0, 9($sp)
+	move 	$a0, $sp		# $a0 = $sp (output file name)
+	li		$v0, 13		# $v0 = 13
+	li		$a1, 1		# $a1 = 1 (open for writing)
+	li		$a2, 0		# $a2 = 0 (mode is ignored)
+	syscall # open a file 
+	move 	$s0, $v0		# $s0 = $v0 (save file descriptor)
+	addi	$sp, $sp, 10			# $sp = $sp + 10
+	
+	# WRITE FIRST LINE OF FILE	
+	addi	$sp, $sp, -3			# $sp = $sp + -3 (allocate 3 bytes on stack to store 3 chars)
+
+	addi	$t0, $s1, 6			# $t0 = $s1 + 6 (get starting address of game_board)
+	lb		$t1, 0($t0)		# load first char of game_board
+	lb		$t2, 1($t0)		# load second char of game_baord
+		
+	sb		$t1, 0($sp)		# store first char on stack
+	sb		$t2, 1($sp)		# store second byte on stack
+
+	li		$t1, '\n'		# $t1 = '\n'
+	sb		$t1, 2($sp)		# store newline char on stack
+		
+	# write to file
+	li		$v0, 15		# $v0 = 15
+	move 	$a0, $s0		# $a0 = $s0 (pass file descriptor)
+	move 	$a1, $sp		# $a1 = $sp (address of buffer from which to write)
+	li		$a2, 3		# $a2 = 3 
+	syscall
+	addi	$sp, $sp, 3			# $sp = $sp + 3
+	
+	# WRITE SECOND LINE OF FILE
+	addi	$sp, $sp, -3			# $sp = $sp + -3 (allocate space for 3 bytes on stack)
+	# $t0 = base address of game_board
+	lb		$t1, 3($s1)		# load pockets
+	add		$t1, $t1, $t1		# $t1 = $t1 + $t1 (double pockets to account for first row)
+	add		$t1, $t1, $t1		# $t1 = $t1 + $t1 (double pockets again to accout for second row)
+	add		$t2, $t1, $t0		# $t2 = $t1 + $t0
+	addi	$t2, $t2, 2			# $t2 = $t2 + 2 ($t2 = address of bot_mancala)
+
+	lb		$t1, 0($t2)		# load first char of bot_mancala
+	lb		$t3, 1($t2)		# load second char of bot_mancala
+	sb		$t1, 0($sp)		# store first char on stack
+	sb		$t3, 1($sp)		# store second char on stack
+	li		$t1, '\n'		# $t1 = '\n'
+	sb		$t1, 2($sp)		# store newlne char on stack
+
+	# write to file
+	li		$v0, 15		# $v0 = 15
+	move 	$a0, $s0		# $a0 = $s0 (pass file descriptor)
+	move 	$a1, $sp		# $a1 = $sp (address of buffer from which to write)
+	li		$a2, 3		# $a2 = 3
+	syscall
+	addi	$sp, $sp, 3			# $sp = $sp + 3 (reallocate 3 bytes on the stack)
+
+	# WRITE GAME_BOARD TO FILE
+	addi	$t0, $t0, 2			# $t0 = $t0 + 2 add 2 to game_board base address to account for top_mancala
+	li		$t1, 'T'		# $t1 = 'T' (current_row)
+	lb		$t2, 3($s1)		# load pockets
+	add		$t2, $t2, $t2		# $t2 = $t2 + $t2 (double pockets)
+	write_row:
+		# This will loop for pockets * 2 times
+		# $t2 = loop max (pockets * 2)
+		# set loop variable
+		li		$t3, 0		# $t3 = 0 (int i = 0)
+		write_char:
+			lb		$t4, 0($t0)		# load char from game_board
+			addi	$sp, $sp, -1			# $sp = $sp + -1 (make room on stack)
+			sb		$t4, 0($sp)		# store char on stack 
+			
+			# write to file 
+			li		$v0, 15		# $v0 = 15
+			move 	$a0, $s0		# $a0 = $s0 (pass file descriptor)
+			move 	$a1, $sp		# $a1 = $sp (address of buffer from which to write)
+			li		$a2, 1		# $a2 = 1 (writing one char at a time) 
+			syscall
+			addi	$sp, $sp, 1			# $sp = $sp + 1 (reallocate space)
+			
+			addi	$t3, $t3, 1			# $t3 = $t3 + 1 (i++)
+			addi	$t0, $t0, 1			# $t0 = $t0 + 1 (increment address)
+			beq		$t3, $t2, end_write_row_loop	# if $t3 == $t2 then end_loop
+			# Else
+			j		write_char				# jump to write_char
+		end_write_row_loop:
+			# If we just wrote bottom_row, then return.
+			li		$t5, 'B'		# $t5 = 'B'
+			beq		$t1, $t5, return_write_board	# if $t1 == $t5 then return_print_board
+			# Else, write newline and switch to bottom_row to write
+			move 	$t1, $t5		# $t1 = $t5 (switch to bottom_row)
+			# store newline char on the stack 
+			li		$t4, '\n'		# $t4 = '\n'
+			addi	$sp, $sp, -1			# $sp = $sp + -1
+			sb		$t4, 0($sp)		# store newline char on the stack
+			# write newline char
+			li		$v0, 15		# $v0 = 15
+			move 	$a0, $s0		# $a0 = $s0 (pass file descriptor)
+			move 	$a1, $sp		# $a1 = $sp (address of buffer from which to write)
+			li		$a2, 1		# $a2 = 1 (writing one char)
+			syscall
+			addi	$sp, $sp, 1			# $sp = $sp + 1
+			j		write_row				# jump to write_row
+
+	return_write_board:
+		lw		$s0, 0($sp)
+		lw		$s1, 4($sp)
+		addi	$sp, $sp, 8			# $sp = $sp + 8
+		jr $ra
 
 convert_to_char:
 	# Converts a two digit integer to char
