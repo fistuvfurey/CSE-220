@@ -1181,7 +1181,7 @@ load_moves:
 
 	li		$s4, 0		# line number = 0
 	addi	$sp, $sp, -4			# $sp = $sp + -4
-	read_moves_file:
+	store_first_line:
 		# Read the file. 
 		li		$v0, 14		# $v0 = 14
 		move 	$a0, $s3		# $a0 = $s4 ($a0 = file descriptor) 
@@ -1270,7 +1270,7 @@ write_board:
 	
 	# Create string "output.txt" and store on the $sp
 	# String "output.txt" is 10 bytes long
-	addi	$sp, $sp, -10			# $sp = $sp + -10 (allocate 10 bytes)
+	addi	$sp, $sp, -4			# $sp = $sp + -4 (allocate 40 bytes)
 	# store "output.txt" on the stack
 	li		$t0, 'o'		
 	sb		$t0, 0($sp)		
@@ -1298,10 +1298,10 @@ write_board:
 	li		$a2, 0		# $a2 = 0 (mode is ignored)
 	syscall # open a file 
 	move 	$s0, $v0		# $s0 = $v0 (save file descriptor)
-	addi	$sp, $sp, 10			# $sp = $sp + 10
+	addi	$sp, $sp, 4			# $sp = $sp + 4
 	
 	# WRITE FIRST LINE OF FILE	
-	addi	$sp, $sp, -3			# $sp = $sp + -3 (allocate 3 bytes on stack to store 3 chars)
+	addi	$sp, $sp, -4			# $sp = $sp + -4 (allocate 4 bytes on stack to store 3 chars)
 
 	addi	$t0, $s1, 6			# $t0 = $s1 + 6 (get starting address of game_board)
 	lb		$t1, 0($t0)		# load first char of game_board
@@ -1319,10 +1319,10 @@ write_board:
 	move 	$a1, $sp		# $a1 = $sp (address of buffer from which to write)
 	li		$a2, 3		# $a2 = 3 
 	syscall
-	addi	$sp, $sp, 3			# $sp = $sp + 3
+	addi	$sp, $sp, 4			# $sp = $sp + 4
 	
 	# WRITE SECOND LINE OF FILE
-	addi	$sp, $sp, -3			# $sp = $sp + -3 (allocate space for 3 bytes on stack)
+	addi	$sp, $sp, -4			# $sp = $sp + -4 (allocate space for 4 bytes on stack)
 	# $t0 = base address of game_board
 	lb		$t1, 3($s1)		# load pockets
 	add		$t1, $t1, $t1		# $t1 = $t1 + $t1 (double pockets to account for first row)
@@ -1343,7 +1343,7 @@ write_board:
 	move 	$a1, $sp		# $a1 = $sp (address of buffer from which to write)
 	li		$a2, 3		# $a2 = 3
 	syscall
-	addi	$sp, $sp, 3			# $sp = $sp + 3 (reallocate 3 bytes on the stack)
+	addi	$sp, $sp, 4			# $sp = $sp + 4 (reallocate 4 bytes on the stack)
 
 	# WRITE GAME_BOARD TO FILE
 	addi	$t0, $t0, 2			# $t0 = $t0 + 2 add 2 to game_board base address to account for top_mancala
@@ -1357,7 +1357,7 @@ write_board:
 		li		$t3, 0		# $t3 = 0 (int i = 0)
 		write_char:
 			lb		$t4, 0($t0)		# load char from game_board
-			addi	$sp, $sp, -1			# $sp = $sp + -1 (make room on stack)
+			addi	$sp, $sp, -4			# $sp = $sp + -4 (make room on stack)
 			sb		$t4, 0($sp)		# store char on stack 
 			
 			# write to file 
@@ -1366,7 +1366,7 @@ write_board:
 			move 	$a1, $sp		# $a1 = $sp (address of buffer from which to write)
 			li		$a2, 1		# $a2 = 1 (writing one char at a time) 
 			syscall
-			addi	$sp, $sp, 1			# $sp = $sp + 1 (reallocate space)
+			addi	$sp, $sp, 4			# $sp = $sp + 4 (reallocate space)
 			
 			addi	$t3, $t3, 1			# $t3 = $t3 + 1 (i++)
 			addi	$t0, $t0, 1			# $t0 = $t0 + 1 (increment address)
@@ -1381,7 +1381,7 @@ write_board:
 			move 	$t1, $t5		# $t1 = $t5 (switch to bottom_row)
 			# store newline char on the stack 
 			li		$t4, '\n'		# $t4 = '\n'
-			addi	$sp, $sp, -1			# $sp = $sp + -1
+			addi	$sp, $sp, -4			# $sp = $sp + -4
 			sb		$t4, 0($sp)		# store newline char on the stack
 			# write newline char
 			li		$v0, 15		# $v0 = 15
@@ -1389,7 +1389,7 @@ write_board:
 			move 	$a1, $sp		# $a1 = $sp (address of buffer from which to write)
 			li		$a2, 1		# $a2 = 1 (writing one char)
 			syscall
-			addi	$sp, $sp, 1			# $sp = $sp + 1
+			addi	$sp, $sp, 4			# $sp = $sp + 4
 			j		write_row				# jump to write_row
 
 	return_write_board:
