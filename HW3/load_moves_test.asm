@@ -1,5 +1,5 @@
 .data
-filename: .asciiz "moves01.txt"
+filename: .asciiz "moves02.txt"
 .align 0
 moves: .byte 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .text

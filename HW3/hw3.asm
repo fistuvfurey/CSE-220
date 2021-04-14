@@ -1179,18 +1179,88 @@ load_moves:
 	# If the file descriptor is negative then the file does not exist. 
 	bltz $s3, error_reading_file
 
-	li		$s4, 0		# line number = 0
-	addi	$sp, $sp, -4			# $sp = $sp + -4
-	store_first_line:
-		# Read the file. 
+	li		$s4, 1		# $s4 = 1 (line #)
+	read_rows_cols:
+		# read first char 
+		addi	$sp, $sp, -4			# $sp = $sp + -4
 		li		$v0, 14		# $v0 = 14
 		move 	$a0, $s3		# $a0 = $s4 ($a0 = file descriptor) 
 		move 	$a1, $sp		# $a1 = $sp ($a1 = address of buffer)
 		li		$a2, 1		# $a2 = 1 (the maximum chars to read is 1)
 		syscall
+		lb		$s5, 0($sp)		# load first char
+		addi	$sp, $sp, 4			# $sp = $sp + 4 (reallocate)
 		
+		# read second char
+		addi	$sp, $sp, -4			# $sp = $sp + -4
+		li		$v0, 14		# $v0 = 14
+		move 	$a0, $s3		# $a0 = $s4 ($a0 = file descriptor) 
+		move 	$a1, $sp		# $a1 = $sp ($a1 = address of buffer)
+		li		$a2, 1		# $a2 = 1 (the maximum chars to read is 1)
+		syscall
+		lb		$t3, 0($sp)		# load second char
+		addi	$sp, $sp, 4			# $sp = $sp + 4 (reallocate)
+		# Intialize either row or col with the first char
+		# if line_number == '2' then initialize row
+		li		$t0, 2		# $t0 = 2
+		beq		$s4, $t0, initialize_row	# if $s4 == $t0 then initialize_row
+		# Else initialize_col
+		addi	$s1, $s5, -48			# $s1 = $s5 + -48
+		j		check_endline				# jump to check_endline
+		
+		initialize_row:
+			addi	$s2, $s5, -48			# $s2 = $s5 + -48
+			
+		check_endline:
+			# If second char is endline char then move_to_next_line
+			li		$t0, '\n'		# $t0 = '\n'
+			beq		$t3, $t0, move_to_next_line	# if $t3 == $t0 then move_to_next_line
+			li		$t0, '\r'		# $t0 = '\r'
+			beq		$t3, $t0, move_to_next_line	# if $t3 == $t0 then move_to_next_line
 
-	
+		# Else, second char must be a digit and we have a two digit number.
+		move 	$a0, $s5		# $a0 = $s5 (pass first char digit)
+		move 	$a1, $t3		# $a1 = $t3 (pass second char digit)
+		jal		convert_to_int				# jump to convert_to_int and save position to $ra
+		# $v0 = two digit int
+		# if line_number == 1 then initalize_col
+		li		$t0, 1		# $t0 = 1
+		beq		$t0, $s4, initialize_col	# if $t0 == $s4 then initialize_col
+		# else, line_number must be == 2 so initialize row
+		move 	$s2, $v0		# $s2 = $v0
+		j		move_to_next_line				# jump to move_to_next_line
+		
+		initialize_col:
+			move 	$s1, $v0		# $s1 = $v0 (intialize col)
+
+		move_to_next_line:
+			# If second char != '\n' then we need to get to '\n'
+			li		$t0, '\n'		# $t0 = '\n'
+			bne		$t0, $t3, get_to_n	# if $t0 == $t3 then get_to_n
+			# Else second char is '\n'
+			j		increment_line_number				# jump to increment_line_number
+			
+			get_to_n:
+				# read next char
+				addi	$sp, $sp, -4			# $sp = $sp + -4
+				li		$v0, 14		# $v0 = 14
+				move 	$a0, $s3		# $a0 = $s4 ($a0 = file descriptor) 
+				move 	$a1, $sp		# $a1 = $sp ($a1 = address of buffer)
+				li		$a2, 1		# $a2 = 1 (the maximum chars to read is 1)
+				syscall
+				lb		$t3, 0($sp)		# load char
+				addi	$sp, $sp, 4			# $sp = $sp + 4 (reallocate)
+				j		move_to_next_line	# jump to move_to_next_line
+				
+			increment_line_number:
+				# If line_number == 2 then read_moves
+				li		$t0, 2		# $t0 = 2
+				beq		$t0, $s4, read_moves	# if $t0 == $s4 then read_moves
+				# Else we need to read the second line
+				addi	$s4, $s4, 1			# $t2 = $t2 + 1 (line_number++)
+				j		read_rows_cols				# jump to read_rows_cols
+
+	read_moves:
 	error_reading_file:
 		li		$v0, -1		# $v0 = -1
 		
