@@ -1158,16 +1158,23 @@ check_row:
 		jr $ra
 
 load_moves:
-	addi	$sp, $sp, -24			# $sp = $sp + -24
-	lw		$s0, 0($sp)		# moves[]
-	lw		$s1, 4($sp)		# columns
-	lw		$s2, 8($sp)		# rows
-	lw		$s3, 12($sp)		# file descriptor
-	lw		$s4, 16($sp)		# line number
-	lw		$s5, 20($sp)		# current_char
+	addi	$sp, $sp, -36			# $sp = $sp + -36
+	sw		$s0, 0($sp)		# moves[]
+	sw		$s1, 4($sp)		# columns
+	sw		$s2, 8($sp)		# rows
+	sw		$s3, 12($sp)		# file descriptor
+	sw		$s4, 16($sp)		# line_number
+	sw		$s5, 20($sp)		# move_count
+	sw		$s6, 24($sp)		# col_index
+	sw		$s7, 28($sp)		# row_index
+	sw		$ra, 32($sp)		# save return address
 
 	# Save moves[]
 	move 	$s0, $a0	# $s0 = $a0
+	
+	li		$s5, 0		# $s5 = 0 (intialize move_count to 0)
+	li		$s6, 0		# $s6 = 0 (inttialize col_index to 0)
+	li		$s7, 0		# $s7 = 0 (initialze row_index to 0)
 	
 	# Open file
 	li		$v0, 13		# $v0 = 13
@@ -1188,7 +1195,7 @@ load_moves:
 		move 	$a1, $sp		# $a1 = $sp ($a1 = address of buffer)
 		li		$a2, 1		# $a2 = 1 (the maximum chars to read is 1)
 		syscall
-		lb		$s5, 0($sp)		# load first char
+		lb		$t1, 0($sp)		# load first char
 		addi	$sp, $sp, 4			# $sp = $sp + 4 (reallocate)
 		
 		# read second char
@@ -1205,11 +1212,11 @@ load_moves:
 		li		$t0, 2		# $t0 = 2
 		beq		$s4, $t0, initialize_row	# if $s4 == $t0 then initialize_row
 		# Else initialize_col
-		addi	$s1, $s5, -48			# $s1 = $s5 + -48
+		addi	$s1, $t1, -48			# $s1 = $t1 + -48
 		j		check_endline				# jump to check_endline
 		
 		initialize_row:
-			addi	$s2, $s5, -48			# $s2 = $s5 + -48
+			addi	$s2, $t1, -48			# $s2 = $t1 + -48
 			
 		check_endline:
 			# If second char is endline char then move_to_next_line
@@ -1219,7 +1226,7 @@ load_moves:
 			beq		$t3, $t0, move_to_next_line	# if $t3 == $t0 then move_to_next_line
 
 		# Else, second char must be a digit and we have a two digit number.
-		move 	$a0, $s5		# $a0 = $s5 (pass first char digit)
+		move 	$a0, $t1		# $a0 = $t1 (pass first char digit)
 		move 	$a1, $t3		# $a1 = $t3 (pass second char digit)
 		jal		convert_to_int				# jump to convert_to_int and save position to $ra
 		# $v0 = two digit int
@@ -1244,7 +1251,7 @@ load_moves:
 				# read next char
 				addi	$sp, $sp, -4			# $sp = $sp + -4
 				li		$v0, 14		# $v0 = 14
-				move 	$a0, $s3		# $a0 = $s4 ($a0 = file descriptor) 
+				move 	$a0, $s3		# $a0 = $s3 ($a0 = file descriptor) 
 				move 	$a1, $sp		# $a1 = $sp ($a1 = address of buffer)
 				li		$a2, 1		# $a2 = 1 (the maximum chars to read is 1)
 				syscall
@@ -1261,10 +1268,94 @@ load_moves:
 				j		read_rows_cols				# jump to read_rows_cols
 
 	read_moves:
-	error_reading_file:
-		li		$v0, -1		# $v0 = -1
+		# read first char 
+		addi	$sp, $sp, -4			# $sp = $sp + -4
+		li		$v0, 14		# $v0 = 14
+		move 	$a0, $s3		# $a0 = $s3 ($a0 = file descriptor) 
+		move 	$a1, $sp		# $a1 = $sp ($a1 = address of buffer)
+		li		$a2, 1		# $a2 = 1 (the maximum chars to read is 1)
+		syscall
+		lb		$t1, 0($sp)		# load first char
+		addi	$sp, $sp, 4			# $sp = $sp + 4 (reallocate)
+
+		# read second char
+		addi	$sp, $sp, -4			# $sp = $sp + -4
+		li		$v0, 14		# $v0 = 14
+		move 	$a0, $s3		# $a0 = $s4 ($a0 = file descriptor) 
+		move 	$a1, $sp		# $a1 = $sp ($a1 = address of buffer)
+		li		$a2, 1		# $a2 = 1 (the maximum chars to read is 1)
+		syscall
+		lb		$t3, 0($sp)		# load second char
+		addi	$sp, $sp, 4			# $sp = $sp + 4 (reallocate)
+
+		# check to see if either of the chars are invalid (i.e. letters)
+		li		$t0, 65		# $t0 = 65
+		bge		$t3, $t0, is_letter	# if $t3 >= $t0 then is_letter
+		bge		$t1, $t0, is_letter	# if $s5 >= $t0 then is_letter
+		# else
+		j		insert_move				# jump to insert_move
+
+		is_letter:
+			# insert -1 into the array
+			li		$t0, -1		# $t0 = -1
+			sb		$t0, 0($s0)		# insert -1 into the array 
+			addi	$s0, $s0, 1			# $s0 = $s0 + 1 (increment moves[] address)
+			addi	$s6, $s6, 1			# $s6 = $s6 + 1 (increment col_index)
+			addi	$s5, $s5, 1			# $s5 = $s5 + 1 (increment moves_count)
+
+			# if col_index == columns
+			beq		$s6, $s1, insert_99	# if $s6 == $s1 then insert_99
+			# else
+			j		read_moves				# jump to read_moves
+			
+		insert_move:
+			# convert two digits to int 
+			move 	$a0, $t1		# $a0 = $t1 (pass first char digit)
+			move 	$a1, $t3		# $a1 = $t3 (pass second char digit) 
+			jal		convert_to_int				# jump to convert_to_int and save position to $ra
+			# $v0 = int move
+			sb		$v0, 0($s0)		# insert int move in moves[]
+			addi	$s5, $s5, 1			# $s5 = $s5 + 1 (increment move_count)
+			addi	$s6, $s6, 1			# $s6 = $s6 + 1 (increment col_index)
+			addi	$s0, $s0, 1			# $s0 = $s0 + 1 (increment address of moves[])
+			
+			# if col_index == columns
+			beq		$s6, $s1, insert_99	# if $s6 == $s1 then insert_99
+			# else
+			j		read_moves				# jump to read_moves
+			
+
+		insert_99:
+			# if we are on the last row then we don't insert a 99 we return
+			# if row_index == 4
+			li		$t0, 4		# $t0 = 4
+			beq		$t0, $s7, return_load_moves	# if $t0 == $s7 then return_load_moves
+			# Else, we are moving onto the next row so we need to increment row_index
+			addi	$s7, $s7, 1			# $s7 = $s7 + 1 (increment row_index)
+			li		$s6, 0		# $s6 = 0 (reset col_index to 0) 
 		
-	jr $ra
+			# Insert 99 move into moves[]
+			li		$t0, 99		# $t0 = 99
+			sb		$t0, 0($s0)		# insert 99 move into moves[]
+			addi	$s0, $s0, 1			# $s0 = $s0 + 1 (increment moves[] address) 
+			j		read_moves				# jump to read_moves
+
+	error_reading_file:
+		li		$s5, -1		# $s5 = -1 (return -1)
+	
+	return_load_moves:
+		move 	$v0, $s5		# return value
+		lw		$s0, 0($sp)
+		lw		$s1, 4($sp)
+		lw		$s2, 8($sp)
+		lw		$s3, 12($sp)
+		lw		$s4, 16($sp)
+		lw		$s5, 20($sp)
+		lw		$s6, 24($sp)
+		lw		$s7, 28($sp)
+		lw		$ra, 32($sp)
+		addi	$sp, $sp, 36			# $sp = $sp + 36
+		jr $ra
 
 play_game:
 	jr  $ra
