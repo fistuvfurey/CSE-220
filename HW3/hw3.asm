@@ -1327,11 +1327,10 @@ load_moves:
 
 		insert_99:
 			# if we are on the last row then we don't insert a 99 we return
-			# if row_index == 4
-			li		$t0, 4		# $t0 = 4
-			beq		$t0, $s7, return_load_moves	# if $t0 == $s7 then return_load_moves
-			# Else, we are moving onto the next row so we need to increment row_index
+			# if row_index == rows
 			addi	$s7, $s7, 1			# $s7 = $s7 + 1 (increment row_index)
+			beq		$s2, $s7, return_load_moves	# if $s2 == $s7 then return_load_moves
+			# Else, move on to the next row
 			li		$s6, 0		# $s6 = 0 (reset col_index to 0) 
 		
 			# Insert 99 move into moves[]
@@ -1345,16 +1344,23 @@ load_moves:
 	
 	return_load_moves:
 		move 	$v0, $s5		# return value
-		lw		$s0, 0($sp)
-		lw		$s1, 4($sp)
-		lw		$s2, 8($sp)
-		lw		$s3, 12($sp)
-		lw		$s4, 16($sp)
-		lw		$s5, 20($sp)
-		lw		$s6, 24($sp)
-		lw		$s7, 28($sp)
-		lw		$ra, 32($sp)
-		addi	$sp, $sp, 36			# $sp = $sp + 36
+		# edge case! 
+		# if rows == 1 then don't increment move_count
+		li		$t0, 1		# $t0 = 1
+		beq		$t0, $s2, restore_registers_load_move	# if $t0 == $s2 then restore_registers_load_move
+		# Else, add 1 to move_count
+		addi	$v0, $v0, 1			# $v0 = $v0 + 1
+		restore_registers_load_move:
+			lw		$s0, 0($sp)
+			lw		$s1, 4($sp)
+			lw		$s2, 8($sp)
+			lw		$s3, 12($sp)
+			lw		$s4, 16($sp)
+			lw		$s5, 20($sp)
+			lw		$s6, 24($sp)
+			lw		$s7, 28($sp)
+			lw		$ra, 32($sp)
+			addi	$sp, $sp, 36			# $sp = $sp + 36
 		jr $ra
 
 play_game:

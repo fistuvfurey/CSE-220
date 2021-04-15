@@ -13,6 +13,7 @@ jal load_moves
 
 la		$t0, moves		# load moves base address
 li		$t1, 0		# $t1 = 0 (int i = 0)
+li		$t2, 10		# $t2 = 37
 print_moves:
     # print int from moves[]
     li		$v0, 1		# $v0 = 1
@@ -22,7 +23,6 @@ print_moves:
     addi	$t0, $t0, 1			# $t0 = $t0 + 1 (increment base address of moves[]
     addi	$t1, $t1, 1			# $t1 = $t1 + 1 (i++)
     
-    li		$t2, 5		# $t2 = 5
     beq		$t2, $t1, break_print_moves	# if $t2 == $t1 then break_print_moves
     j		print_moves				# jump to print_moves
     
