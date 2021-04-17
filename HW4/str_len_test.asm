@@ -1,6 +1,6 @@
 # add test cases to data section
 .data
-str1: .asciiz "Jane Doe"
+str1: .asciiz "Ali Tourre"
 
 .text:
 main:

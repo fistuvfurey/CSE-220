@@ -4,7 +4,21 @@
 .text:
 
 str_len:
-	jr $ra
+	# $a0 = base address of str
+	li		$v0, 0		# $v0 = 0 (length)
+	iterate_str:
+		lb		$t0, 0($a0)		# load char from string
+		bnez $t0, is_char # if char isn't null then increment length
+		# else we have reached the null terminator for str so break
+		j		return_str_length				# jump to return_str_length
+		
+		is_char:
+			addi	$v0, $v0, 1			# $v0 = $v0 + 1 (length++)
+			addi	$a0, $a0, 1			# $a0 = $a0 + 1 (increment str address)
+			j		iterate_str				# jump to iterate_str
+			
+	return_str_length:
+		jr $ra
 str_equals:
 	jr $ra
 str_cpy:
