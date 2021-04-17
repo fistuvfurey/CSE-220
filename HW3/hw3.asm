@@ -1,6 +1,6 @@
-# erase this line and type your first and last name here in a comment
-# erase this line and type your Net ID here in a comment (e.g., jmsmith)
-# erase this line and type your SBU ID number here in a comment (e.g., 111234567)
+# Aidan Furey
+# afurey
+# 112622264
 
 ############################ DO NOT CREATE A .data SECTION ############################
 ############################ DO NOT CREATE A .data SECTION ############################
@@ -1317,7 +1317,7 @@ load_moves:
 			sb		$v0, 0($s0)		# insert int move in moves[]
 			addi	$s5, $s5, 1			# $s5 = $s5 + 1 (increment move_count)
 			addi	$s6, $s6, 1			# $s6 = $s6 + 1 (increment col_index)
-			addi	$s0, $s0, 1			# $s0 = $s0 + 1 (increment address of moves[])
+			addi	$s0, $s0, 4			# $s0 = $s0 + 4 (increment address of moves[])
 			
 			# if col_index == columns
 			beq		$s6, $s1, insert_99	# if $s6 == $s1 then insert_99
@@ -1340,7 +1340,7 @@ load_moves:
 			j		read_moves				# jump to read_moves
 
 	error_reading_file:
-		li		$s5, -1		# $s5 = -1 (return -1)
+		li		$s5, -2		# $s5 = -1 (return -2)
 	
 	return_load_moves:
 		move 	$v0, $s5		# return value
@@ -1364,7 +1364,133 @@ load_moves:
 		jr $ra
 
 play_game:
-	jr  $ra
+	move 	$fp, $sp		# $fp = $sp (save current stack pointer)
+	addi	$sp, $sp, -32			# $sp = $sp + -32
+	sw		$s0, 0($sp)		# state
+	sw		$s1, 4($sp)		# moves[]
+	sw		$s2, 8($sp)		# num_moves_to_execute
+	sw		$s3, 12($sp)		# moves_filename/return value in $v0	
+	sw		$s4, 16($sp)		# current_move
+	sw		$s5, 20($sp)		# stones in origin_pocket
+	sw		$s6, 24($sp)		# return value in $v1 
+	sw		$ra, 28($sp)		# save return address
+	
+	# save arguments
+	move 	$s3, $a0	# save moves_filename
+	move 	$s0, $a2 	# save state
+	move 	$s1, $a3	# save moves[]
+	lw		$s2, 0($fp)		# save num_moves_to_execute
+	
+	# load board
+	move 	$a0, $s0		# $a0 = $s0 (pass state)
+	# $a1 already contains board_filename
+	jal		load_game				# jump to load_game and save position to $ra
+	bltz $v0, file_access_error # if return val is negative then return error
+
+	# load moves
+	move 	$a0, $s1		# $a0 = $s1 (pass moves[])
+	move 	$a1, $s3		# $a1 = $s3 (pass moves_filename)
+	jal		load_moves				# jump to load_moves and save position to $ra
+	
+	bltz $v0, file_access_error # if return val is negative then return error
+	# else
+	j		while_num_moves_to_execute				# jump to while_num_moves_to_execute
+	
+	file_access_error:
+		# return -1, -1
+		li		$v0, -1		# $s3 = -1
+		li		$v1, -1		# $s6 = -1
+		j		return_play_game				# jump to return_play_game
+		
+
+	while_num_moves_to_execute:
+		beqz $s2, out_of_moves # if num_moves_to_execute == 0 then return 
+		lb		$s4, 0($s1)		# load move from array 
+
+		# if move == 99 then verify_move
+		li		$t0, 99		# $t0 = 99
+		beq		$t0, $s4, call_verify_move	# if $t0 == $s4 then call_verify_move
+		
+		# get stones in origin_pocket
+		move 	$a0, $s0		# $a0 = $s0 (pass state)
+		lb		$a1, 5($s0)		# load player_turn from state as arg
+		move 	$a2, $s4		# $a2 = $s4 (pass move as distance)
+		jal		get_pocket				# jump to get_pocket and save position to $ra
+		move 	$s5, $v0		# $s5 = $v0 (save stones in origin_pocket)
+		bltz $s5, invalid_move # if return value is negative return error
+
+		call_verify_move:
+			move 	$a0, $s0		# $a0 = $s0 (pass state)
+			move 	$a1, $s4		# $a1 = $s4 (pass move as origin_pocket)
+			move 	$a2, $s5		# $a2 = $s5 (pass stones in origin_pocket as distance)
+			jal		verify_move				# jump to verify_move and save position to $ra
+			blez $v0, invalid_move # if return value is negative then return error
+		
+		# execute move
+		move 	$a0, $s0		# $a0 = $s0 (pass state)
+		move 	$a1, $s4		# $a1 = $s4 (pass move as origin_pocket)
+		jal		execute_move				# jump to execute_move and save position to $ra
+		# if return value == 1 then steal move
+		li		$t0, 1		# $t0 = 1
+		beq		$t0, $v1, call_steal	# if $t0 == $v0 then call_steal
+		# else call check_row
+		j		call_check_row				# jump to call_check_row
+		
+		call_steal:
+			# destination_pocket = 2 * pockets + 1 - distance + origin_pocket
+			move 	$a0, $s0		# $a0 = $s0 (pass state)
+			lb		$t0, 2($s0)		# load pockets
+			add		$t0, $t0, $t0		# $t0 = $t0 + $t0 (pockets * 2) 
+			addi	$t0, $t0, 1			# $t0 = $t0 + 1 (pockets * 2 + 1)
+			sub		$t0, $t0, $s5		# $t0 = $t0 - $s5 (pockets * 2 + 1 - distance)
+			add		$t0, $t0, $s4		# $t0 = $t0 + $s4 (pockets * 2 + 1 - distance + origin_pocket)
+			# $t0 = destination_pocket
+			move 	$a1, $t0		# $a1 = $t0 (pass destination_pocket)
+			jal		steal				# jump to steal and save position to $ra
+			
+		call_check_row:	
+			move 	$a0, $s0		# $a0 = $s0 (pass state)
+			jal		check_row				# jump to check_row and save position to $ra
+			beqz $v0, continue_game
+			# else a row was found to be empty so the game is over
+			j		end_game				# jump to end_game
+			
+		continue_game:
+			addi	$s1, $s1, 4			# $s1 = $s1 + 4 (increment address of moves[])
+			addi	$s2, $s2, -1			# $s2 = $s2 + -1 (decrement num_moves_to_execute)
+			# if num_moves_to_execute == 0 then gameplay is over
+			beqz $s2, end_game
+			# else continue gameplay
+			j		while_num_moves_to_execute				# jump to while_num_moves_to_execute
+				
+				
+		end_game:
+			# $v1 (return value from check_row) should be our return value for play_game in $v0
+			move 	$v0, $v1		# $v0 = $v1
+			lb		$v1, 4($s0)		# load moves_executed from state
+			j		return_play_game				# jump to return_play_game		
+	
+		invalid_move:
+			addi	$s2, $s2, -1			# $s2 = $s2 + -1 (decrement num_moves_to_execute)
+			addi	$s1, $s1, 4			# $s1 = $s1 + 4 (increment base address of moves[])
+			
+			j		while_num_moves_to_execute				# jump to while_num_moves_to_execute
+
+		out_of_moves:
+			li		$v0, 0		# $v0 = 0 (no player won)
+			lb		$v1, 4($s0)		# load turns executed
+			
+	return_play_game:
+		lw		$s0, 0($sp)
+		lw		$s1, 4($sp)
+		lw		$s2, 8($sp)
+		lw		$s3, 12($sp)		 
+		lw		$s4, 16($sp)
+		lw		$s5, 20($sp)
+		lw		$s6, 24($sp)
+		lw		$ra, 28($sp)
+		addi	$sp, $sp, 32			# $sp = $sp + 32
+		jr  $ra
 print_board:	
 	move 	$t0, $a0		# $t0 = $a0 (save state)
 	addi	$t1, $t0, 6			# $t1 = $t0 + 6 (get base address of game_board)

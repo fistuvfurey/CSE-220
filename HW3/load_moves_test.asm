@@ -20,7 +20,7 @@ print_moves:
     lb		$a0, 0($t0)		# load int from moves[]
     syscall
     
-    addi	$t0, $t0, 1			# $t0 = $t0 + 1 (increment base address of moves[]
+    addi	$t0, $t0, 4			# $t0 = $t0 + 1 (increment base address of moves[]
     addi	$t1, $t1, 1			# $t1 = $t1 + 1 (i++)
     
     beq		$t2, $t1, break_print_moves	# if $t2 == $t1 then break_print_moves
