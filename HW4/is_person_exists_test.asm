@@ -20,10 +20,10 @@ Network:
 main:
 	la $a0, Network
 	jal create_person
-	move $s0, $v0
+	move $t0, $v0 # save address of newly created person 
 	
 	la $a0, Network
-	move $a1, $s0
+	move $a1, $t0 # pass address of newly created person to see if they exist in the network
 	jal is_person_exists
 	#write test code
 	

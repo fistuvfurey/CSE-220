@@ -92,8 +92,28 @@ create_person:
 	
 	return_create_person:
 		jr $ra
+		yeah 
 is_person_exists:
-	jr $ra
+	# $a0 = address of ntwrk
+	# $a1 = address of person
+	addi	$t0, $a0, 36			# $t0 = $a0 + 36 (get address of nodes[] field)
+	lw		$t1, 8($a0)		# load size_of_node from ntwrk 
+	lw		$t2, 16($a0)		# load curr_num_of_nodes
+
+	mult	$t1, $t2			# $t1 * $t2 = Hi and Lo registers (size_of_node * curr_num_of_nodes)
+	mflo	$t1					# copy Lo to $t1 ($t1 = size_of_node * curr_num_of_nodes)
+	add		$t0, $t0, $t1		# $t0 = $t0 + $t1 ($t0 = ntwrk + 36 + size_of_node * curr_num_of_nodes)
+
+	blt		$a1, $t0, person_exists	# if $a1 < $t0 then person_exists
+	# else person does not exist
+	li		$v0, 0		# $v0 = 0
+	j		return_is_person_exists				# jump to return_is_person_exists
+	
+	person_exists:
+		li		$v0, 1		# $v0 = 1
+
+	return_is_person_exists:	
+		jr $ra
 is_person_name_exists:
 	jr $ra
 add_person_property:
