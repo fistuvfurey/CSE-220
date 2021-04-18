@@ -76,14 +76,14 @@ create_person:
 	# else there is room for another node
 
 	# address of new node = ntwrk + 12 * curr_num_of_nodes + 36 
-	li		$t0, 12		# $t0 = 12 (size of a node)
+	lw		$t0, 8($a0)		# load size_of_node from ntwrk 
 	mult	$t0, $t1			# $t0 * $t1 = Hi and Lo registers (size of node * curr_num_of_nodes)
 	mflo	$t0					# copy Lo to $t0 ($t0 = offset of first free index for new node)
 	addi	$v0, $a0, 36			# $v0 = $a0 + 36 ($v0 = base address of ntwrk struct + offset for nodes[] field)
 	add		$v0, $v0, $t0		# $v0 = $v0 + $t0 (address of new node)
 	
 	addi	$t1, $t1, 1			# $t1 = $t1 + 1 (increment curr_num_of_nodes)
-	sb		$t1, 16($a0)		# update curr_num_of_nodes in ntwrk) 
+	sw		$t1, 16($a0)		# update curr_num_of_nodes in ntwrk
 	j		return_create_person				# jump to return_create_person
 
 	reached_max_nodes:
