@@ -92,7 +92,6 @@ create_person:
 	
 	return_create_person:
 		jr $ra
-		yeah 
 is_person_exists:
 	# $a0 = address of ntwrk
 	# $a1 = address of person
