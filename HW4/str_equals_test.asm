@@ -1,7 +1,7 @@
 # add test cases to data section
 .data
-str1: .asciiz "Jane Doe"
-str2: .asciiz "Jane Doe"
+str1: .asciiz " 1"
+str2: .asciiz " 1"
 
 str3: .asciiz "Jane Does"
 .text:

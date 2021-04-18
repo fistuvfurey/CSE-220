@@ -19,8 +19,33 @@ str_len:
 			
 	return_str_length:
 		jr $ra
+
 str_equals:
-	jr $ra
+	# $a0 = the base address of str1
+	# $a1 = the base address of str2
+	iterate_both_strs:
+		lb		$t0, 0($a0)		# load char from str1
+		lb		$t1, 0($a1)		# load char from str2
+		bne		$t0, $t1, strs_not_equal	# if $t0 != $t1 then strs_not_equal
+		# else chars are equal
+
+		beqz $t0, strs_are_equal # if we've reached a null-terminator then strings are equal and break
+		# else we are not at the end of the string yet so we need to iterate again
+		addi	$a0, $a0, 1			# $a0 = $a0 + 1 (increment address of str1)
+		addi	$a1, $a1, 1			# $a1 = $a1 + 1 (increment address of str2)
+		j		iterate_both_strs				# jump to iterate_both_strs
+	# *** end of loop ***
+
+	strs_are_equal:
+		li		$v0, 1		# $v0 = 1 (return 1)
+		j		return_str_equals				# jump to return_str_equals
+
+	strs_not_equal:
+		li		$v0, 0		# $v0 = 0 (return 0)
+		
+	return_str_equals:
+		jr $ra
+
 str_cpy:
 	# $a0 = src str address
 	# $a1 = dest str address
@@ -42,6 +67,7 @@ str_cpy:
 
 	return_str_copy:
 		jr $ra
+		
 create_person:
 	jr $ra
 is_person_exists:
