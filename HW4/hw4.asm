@@ -67,9 +67,31 @@ str_cpy:
 
 	return_str_copy:
 		jr $ra
-		
+
 create_person:
-	jr $ra
+	# $a0 = base address of ntwrk struct
+	lw		$t0, 0($a0)		# load total_nodes from ntwrk
+	lw		$t1, 16($a0)		# load curr_num_of_nodes from ntwrk
+	beq		$t0, $t1, reached_max_nodes	# if $t0 == $t1 then reached_max_nodes
+	# else there is room for another node
+
+	# address of new node = ntwrk + 12 * curr_num_of_nodes + 36 
+	li		$t0, 12		# $t0 = 12 (size of a node)
+	mult	$t0, $t1			# $t0 * $t1 = Hi and Lo registers (size of node * curr_num_of_nodes)
+	mflo	$t0					# copy Lo to $t0 ($t0 = offset of first free index for new node)
+	addi	$v0, $a0, 36			# $v0 = $a0 + 36 ($v0 = base address of ntwrk struct + offset for nodes[] field)
+	add		$v0, $v0, $t0		# $v0 = $v0 + $t0 (address of new node)
+	
+	addi	$t1, $t1, 1			# $t1 = $t1 + 1 (increment curr_num_of_nodes)
+	sb		$t1, 16($a0)		# update curr_num_of_nodes in ntwrk) 
+	j		return_create_person				# jump to return_create_person
+
+	reached_max_nodes:
+		li		$v0, -1		# $v0 = -1 (return -1)
+		j		return_create_person				# jump to return_create_person
+	
+	return_create_person:
+		jr $ra
 is_person_exists:
 	jr $ra
 is_person_name_exists:
