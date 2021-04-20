@@ -2,7 +2,7 @@
 # Test your code with different Network layouts
 # Don't assume that we will use the same layout in all our tests
 .data
-Name1: .asciiz "Cacophonix"
+Name1: .asciiz "Cacouphonix"
 Name2: .asciiz "Getafix"
 Name_prop: .asciiz "NAME"
 
@@ -23,8 +23,14 @@ Network:
 .text:
 main:
 	la $a0, Network
-	#jal create_person
+	jal create_person
 	move $s0, $v0
+	
+	la $a0, Network
+	move $a1, $s0
+	la $a2, Name_prop
+	la $a3, Name1
+	jal add_person_property
 	
 	la $a0, Network
 	move $a1, $s0
