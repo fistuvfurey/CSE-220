@@ -97,6 +97,9 @@ is_person_exists:
 	# $a0 = address of ntwrk
 	# $a1 = address of person
 	addi	$t0, $a0, 36			# $t0 = $a0 + 36 (get address of nodes[] field)
+	# if person address is invalid
+	blt		$a1, $t0, person_does_not_exist	# if $a1 < $t0 then person_does_not_exist
+	# else
 	lw		$t1, 8($a0)		# load size_of_node from ntwrk 
 	lw		$t2, 16($a0)		# load curr_num_of_nodes
 
@@ -105,9 +108,10 @@ is_person_exists:
 	add		$t0, $t0, $t1		# $t0 = $t0 + $t1 ($t0 = ntwrk + 36 + size_of_node * curr_num_of_nodes)
 
 	blt		$a1, $t0, person_exists	# if $a1 < $t0 then person_exists
-	# else person does not exist
-	li		$v0, 0		# $v0 = 0
-	j		return_is_person_exists				# jump to return_is_person_exists
+	# else
+	person_does_not_exist:
+		li		$v0, 0		# $v0 = 0
+		j		return_is_person_exists				# jump to return_is_person_exists
 	
 	person_exists:
 		li		$v0, 1		# $v0 = 1
@@ -143,7 +147,7 @@ is_person_name_exists:
 		# else keep looking
 		addi	$s5, $s5, 1			# $s5 = $s5 + 1 (i++)
 		# if we've checked every person in the ntwrk and still haven't found the name then the name does not exist
-		beq		$s5, $s3, name_does_not_exist	# if $s5 == $s3 then name_does_not_exist (if i == curr_num_of_nodes) 
+		bge		$s5, $s3, name_does_not_exist	# if $s5 == $s3 then name_does_not_exist (if i == curr_num_of_nodes) 
 		# else get and check next person's name
 		add		$s2, $s2, $s4		# $s2 = $s2 + $s4 (get reference to next person) 
 		j		search_for_names				# jump to search_for_names

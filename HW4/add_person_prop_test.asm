@@ -23,7 +23,7 @@ Network:
 .text:
 main:
 	la $a0, Network
-	jal create_person
+	#jal create_person
 	move $s0, $v0
 	
 	la $a0, Network
