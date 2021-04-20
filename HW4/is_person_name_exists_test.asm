@@ -33,9 +33,16 @@ main:
 	jal add_person_property
 	
 	la $a0, Network
-	la $a1, Name2
+	la $a1, Name1
 	jal is_person_name_exists 
+	move $t0, $v1
 	#write test code
+	
+	# print return value - ntwrk
+	la $t1, Network
+	sub $a0, $t0, $t1
+	li $v0, 1
+	syscall
 	
 	li $v0, 10
 	syscall

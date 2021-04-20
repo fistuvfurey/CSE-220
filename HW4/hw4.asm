@@ -92,6 +92,7 @@ create_person:
 	
 	return_create_person:
 		jr $ra
+
 is_person_exists:
 	# $a0 = address of ntwrk
 	# $a1 = address of person
@@ -113,10 +114,145 @@ is_person_exists:
 
 	return_is_person_exists:	
 		jr $ra
+
 is_person_name_exists:
-	jr $ra
+	addi	$sp, $sp, -28		# $sp = $sp + -28
+	sw		$s0, 0($sp)		# ntwrk
+	sw		$s1, 4($sp)		# base address of name str
+	sw		$s2, 8($sp)		# index
+	sw		$s3, 12($sp)		# curr_num_of_nodes
+	sw		$s4, 16($sp)		# size_of_node
+	sw		$s5, 20($sp)		# int i (iteration)
+	sw		$ra, 24($sp)		# save return address
+	
+	# save arguments 
+	move 	$s0, $a0		# $s0 = $a0 (save ntwrk)
+	move 	$s1, $a1		# $s1 = $a1 (save name)
+
+	addi	$s2, $s0, 36			# $s2 = $s0 + 36 ($s2 = nodes[0])
+	lw		$s3, 16($s0)		# load curr_num_of_nodes from ntwrk
+	lw		$s4, 8($s0)		# load size_of_node from ntwrk
+	li		$s5, 0		# $s5 = 0 (int i = 0)
+	search_for_names:
+		move 	$a0, $s2		# $a0 = $s2 (pass name from ntwrk)
+		move 	$a1, $s1		# $a1 = $s1 (name we are looking for)
+		jal		str_equals				# jump to str_equals and save position to $ra
+		# if the strings are equal then name_exists
+		li		$t0, 1		# $t0 = 1
+		beq		$t0, $v0, name_exists	# if $t0 == $v0 then name_exists
+		# else keep looking
+		addi	$s5, $s5, 1			# $s5 = $s5 + 1 (i++)
+		# if we've checked every person in the ntwrk and still haven't found the name then the name does not exist
+		beq		$s5, $s3, name_does_not_exist	# if $s5 == $s3 then name_does_not_exist (if i == curr_num_of_nodes) 
+		# else get and check next person's name
+		add		$s2, $s2, $s4		# $s2 = $s2 + $s4 (get reference to next person) 
+		j		search_for_names				# jump to search_for_names
+		
+	name_does_not_exist:
+		li		$v0, 0		# $v0 = 0 
+		j		return_is_person_name_exists				# jump to return_is_person_name_exists
+		
+	name_exists:
+		li		$v0, 1		# $v0 = 1 (return 1 since name exists)
+		move 	$v1, $s2		# $v1 = $s2 (return reference to person)
+		
+	return_is_person_name_exists:
+		lw		$s0, 0($sp)	
+		lw		$s1, 4($sp)
+		lw		$s2, 8($sp)
+		lw		$s3, 12($sp)
+		lw		$s4, 16($sp)
+		lw		$s5, 20($sp)
+		lw		$ra, 24($sp)
+		addi	$sp, $sp, 28			# $sp = $sp + 28
+		jr $ra
+
 add_person_property:
-	jr $ra
+	addi	$sp, $sp, -20			# $sp = $sp + -20
+	sw		$s0, 0($sp)		# ntwrk
+	sw		$s1, 4($sp)		# person
+	sw		$s2, 8($sp)		# prop_name
+	sw		$s3, 12($sp)		# prop_val
+	sw		$ra, 16($sp)		# save return address
+
+	# save arguments
+	move 	$s0, $a0		# $s0 = $a0	(save netwrk)
+	move 	$s1, $a1		# $s1 = $a1 (save person)
+	move 	$s2, $a2		# $s2 = $a2 (save prop_name)
+	move 	$s3, $a3		# $s3 = $a3 (save prop_val)
+
+	# VALIDATION...
+
+	# check to see if prop_name == "NAME"
+	addi	$t0, $s0, 24			# $t0 = $s0 + 24 (get base address of name property asciiz)
+	move 	$a0, $t0		# $a0 = $t0 (pass base address of asciiz str name property)
+	move 	$a1, $s2		# $a1 = $s2 (pass base address of prop_name)
+	jal		str_equals				# jump to str_equals and save position to $ra
+	beqz $v0, invalid_prop_name		# if prop_name != "NAME" then throw invalid_prop_name
+	# else
+	j		check_if_person_exists				# jump to check_if_person_exists
+	
+	invalid_prop_name:
+		li		$v0, 0		# $v0 = 0 (return 0)
+		j		return_add_person_property				# jump to return_add_person_property
+		
+	check_if_person_exists:
+		move 	$a0, $s0		# $a0 = $s0 (pass ntwrk)
+		move 	$a1, $s1		# $a1 = $s1 (pass person)
+		jal		is_person_exists				# jump to is_person_exists and save position to $ra
+		beqz $v0, person_dne		# if person does not exist then throw person_dne
+		# else
+	 	j		validate_prop_val				# jump to validate_prop_val
+		
+	person_dne:
+		li		$v0, -1		# $v0 = -1 (return -1)
+		j		return_add_person_property				# jump to return_add_person_property
+		
+	validate_prop_val:
+		# get size of prop_val str
+		move 	$a0, $s3		# $a0 = $s3 (pass prop_val)
+		jal		str_len				# jump to str_len and save position to $ra
+		# get size_of_node
+		lw		$t0, 8($s0)		# load size_of_node from ntwrk
+		bge		$v0, $t0, invalid_prop_val	# if $v0 >= $t0 then invalid_prop_val
+		# else
+		j		is_prop_val_unique				# jump to is_prop_val_unique
+		
+	invalid_prop_val:
+		li		$v0, -2		# $v0 = -2 (return -2)
+		j		return_add_person_property				# jump to return_add_person_property
+		
+	is_prop_val_unique:
+		# check to see if the person's name already exists in the ntwrk
+		move 	$a0, $s0		# $a0 = $s0 (pass ntwrk)
+		move 	$a1, $s3		# $a1 = $s3 (pass prop_val)
+		jal		is_person_name_exists				# jump to is_person_name_exists and save position to $ra
+		li		$t0, 1		# $t0 = 1
+		beq		$t0, $v0, name_not_unique	# if $t0 == $v0 then name_not_unique
+		# else
+		j		add_property				# jump to add_property	
+		
+	name_not_unique:
+		li		$v0, -3		# $v0 = -3 (return -3) 
+		j		return_add_person_property				# jump to return_add_person_property
+		
+
+	# ADD NAME TO PERSON...
+	add_property:
+		# call str_copy
+		move 	$a0, $s3		# $a0 = $s3 (pass base address of prop_val str as src)
+		move 	$a1, $s1		# $a1 = $s1 (pass person as dest)
+		jal		str_cpy				# jump to str_cpy and save position to $ra
+		li		$v0, 1		# $v0 = 1 (return 1)
+		
+	return_add_person_property:
+		lw		$s0, 0($sp)
+		lw		$s1, 4($sp)
+		lw		$s2, 8($sp)
+		lw		$s3, 12($sp)
+		lw		$ra, 16($sp)
+		addi	$sp, $sp, 20			# $sp = $sp + 20
+		jr $ra
 get_person:
 	jr $ra
 is_relation_exists:
