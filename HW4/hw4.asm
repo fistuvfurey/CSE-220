@@ -257,8 +257,27 @@ add_person_property:
 		lw		$ra, 16($sp)
 		addi	$sp, $sp, 20			# $sp = $sp + 20
 		jr $ra
+
 get_person:
-	jr $ra
+	addi	$sp, $sp, -4			# $sp = $sp + -4
+	sw		$ra, 0($sp)		# save return address 
+	# $a0 = ntwrk 
+	# $a1 = name
+	# call is_person_name_exists
+	jal		is_person_name_exists				# jump to is_person_name_exists and save position to $ra
+	beqz $v0, name_dne_in_ntwrk		# if return value == 0 then name does not exist in the ntwrk 
+	# else $v1 contains the address of the person with the passed name 
+	move 	$v0, $v1		# $v0 = $v1 (return the address of the person node in $v0)
+	j		return_get_person				# jump to return_get_person
+	
+	name_dne_in_ntwrk:
+		li		$v0, 0		# $v0 = 0 (return 0)
+
+	return_get_person:
+		lw		$ra, 0($sp)
+		addi	$sp, $sp, 4			# $sp = $sp + 4
+		jr $ra
+		
 is_relation_exists:
 	jr $ra
 add_relation:

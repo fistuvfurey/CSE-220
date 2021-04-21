@@ -22,11 +22,27 @@ Network:
 
 .text:
 main:
+	# create person 
+	la $a0, Network
+	jal create_person
+	
+	# add name to newly created person 
+	la $a0, Network
+	move $a1, $v0 # pass newly created person
+	la $a2, Name_prop
+	la $a3, Name1
+	jal add_person_property
+	
+	# get newly created person
 	la $a0, Network
 	la $a1, Name1
 	jal get_person
 	
-	#write test code
+	# print offset of returned address 
+	la $t0, Network
+	sub $a0, $v0, $t0
+	li $v0, 1
+	syscall 
 	
 	li $v0, 10
 	syscall
