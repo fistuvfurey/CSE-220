@@ -4,6 +4,7 @@
 .data
 Name1: .asciiz "Cacophonix"
 Name2: .asciiz "Getafix"
+Name_prop: .asciiz "NAME"
 Frnd_prop: .asciiz "FRIEND"
 
 Network:
@@ -22,21 +23,47 @@ Network:
 
 .text:
 main:
+	# create person1 node
 	la $a0, Network
 	jal create_person
-	move $s0, $a0
+	move $s0, $v0 # save person1 address
 	
+	# give person1 name1
 	la $a0, Network
-	la $a1, Name2
-	move $a2, $s0
+	move $a1, $s0 # pass newly created person1 address
+	la $a2, Name_prop
+	la $a3, Name1
+	jal add_person_property
+	
+	# create person2 node
+	la $a0, Network
+	jal create_person
+	move $s1, $v0 # save person2 address
+	
+	# give person2 name2
+	la $a0, Network
+	move $a1, $s1 # pass newly created person2 address
+	la $a2, Name_prop
+	la $a3, Name2
+	jal add_person_property
+	
+	# add relation between person1 and person2
+	la $a0, Network
+	move $a1, $s0 # pass person1 address
+	move $a2, $s1 # pass person2 address
+	jal add_relation
+	
+	# add property to newly created relation 
+	la $a0, Network
+	move $a1, $s0 # pass person1 address
+	move $a2, $s1 # pass person2 address
 	la $a3, Frnd_prop
 	addi $sp, $sp, -4
 	li $s1, 1
 	sw $s1, 0($sp) 
 	jal add_relation_property
 	
-	#write test code
-	
+	# terminate
 	li $v0, 10
 	syscall
 	

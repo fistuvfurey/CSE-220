@@ -405,6 +405,87 @@ add_relation:
 		jr $ra
 
 add_relation_property:
-	jr $ra
+	move 	$fp, $sp		# $fp = $sp (save current stack pointer)
+	addi	$sp, $sp, -24			# $sp = $sp + -24
+	sw		$s0, 0($sp)		# ntwrk
+	sw		$s1, 4($sp)		# person1
+	sw		$s2, 8($sp)		# person2
+	sw		$s3, 12($sp)		# prop_name
+	sw		$s4, 16($sp)		# prop_value
+	sw		$ra, 20($sp)		# save return address 
+	
+	# save arguments
+	move 	$s0, $a0		# $s0 = $a0 (save ntwrk)
+	move 	$s1, $a1		# $s1 = $a1 (save person1)
+	move 	$s2, $a2		# $s2 = $a2 (save person2)
+	move 	$s3, $a3		# $s3 = $a3	(save prop_name)
+	lw		$s4, 0($fp)		# save prop_value from main's stack frame
+
+	# CHECK TO SEE IF ANY OF THE CONDITIONS HAVE BEEN VIOLATED 
+	# verify person1 and person2 are related
+	move 	$a0, $s0		# $a0 = $s0 (pass ntwrk)
+	move 	$a1, $s1		# $a1 = $s1 (pass person1)
+	move 	$a2, $s2		# $a2 = $s2 (pass person2)
+	jal		is_relation_exists				# jump to is_relation_exists and save position to $ra
+	beqz $v0, persons_not_related	# if return value == 0 then person1 and person2 are not related
+	# else relation exists so validate prop_name
+	move 	$a0, $s3		# $a0 = $s3 (pass prop_name base address) 
+	addi	$a1, $s0, 29			# $a1 = $s0 + 29 (pass base address of FRIEND property
+	jal		str_equals				# jump to str_equals and save position to $ra
+	beqz $v0, invalid_edge_prop_name 	# if prop_name str != "FRIEND" edge prop_name str then invalid
+	# else prop_name is valid so validate prop_value
+	bltz $s4, invalid_edge_prop_val
+	# else prop_value is valid so set friend property
+
+	# iterate through the edges to find the edge we want to add the property to
+	addi	$t0, $s0, 96			# $t0 = $s0 + 96 (base address for edges)
+	# loops until we find the edge we want to add the poperty to
+	add_property_to_edge:
+		lw		$t1, 0($t0)		# load first person from edge
+		beq		$s1, $t1, check_next_person	# if $s1 == $t1 then check_next_person (if person1 == first person in this edge then check second person in this edge)
+		beq		$s2, $t1, check_next_person	# if $s2 == $t1 then check_next_person (if person2 == first person in this edge then check second person in this edge)
+		# else this is not the edge we are looking for so check next edge 
+		j		check_next_edge				# jump to check_next_edge
+		
+		check_next_person:
+			lw		$t1, 4($t0)		# load second person from edge
+			beq		$s1, $t1, found_relation	# if $s1 == $t1 then found_relation (if person1 == second person in this edge then we found the edge we are looking for)
+			beq		$s2, $t1, found_relation	# if $s2 == $t1 then found_relation (if person1 == second person in this edge then we found the edge we are looking for)
+			# else this is not the edge we are looking for so check next edge
+
+		check_next_edge:		
+			lw		$t1, 12($s0)		# load size_of_edge from ntwrk
+			add		$t0, $t0, $t1		# $t0 = $t0 + $t1 ($t0 = address of next edge)
+			j		add_property_to_edge				# jump to add_property_to_edge
+	# *** end of loop ***		
+			
+	found_relation:
+		# $t0 = address of edge we need to add property to
+		sw		$s4, 8($t0)		# set prop_value to last 4 bytes of edge
+		li		$v0, 1		# $v0 = 1 (return 1)
+		j		return_add_relation_property				# jump to return_add_relation_property
+				
+	# INVALID CASES
+	persons_not_related:
+		li		$v0, 0		# $v0 = 0 (return 0) 
+		j		return_add_relation_property				# jump to return_add_relation_property
+			
+	invalid_edge_prop_name:
+		li		$v0, -1		# $v0 = -1 (return -1)
+		j		return_add_relation_property				# jump to return_add_relation_property
+		
+	invalid_edge_prop_val:
+		li		$v0, -2		# $v0 = -2
+
+	return_add_relation_property:
+		lw		$s0, 0($sp)
+		lw		$s1, 4($sp)
+		lw		$s2, 8($sp)
+		lw		$s3, 12($sp)
+		lw		$s4, 16($sp)
+		lw		$ra, 20($sp)
+		addi	$sp, $sp, 24			# $sp = $sp + 24
+		jr $ra
+		
 is_friend_of_friend:
 	jr $ra
