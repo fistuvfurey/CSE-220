@@ -305,7 +305,8 @@ is_relation_exists:
 			# else this is not the relation, move on to next edge
 			
 		get_next_edge:
-			addi	$t0, $t0, 12			# $t0 = $t0 + 12 (get base address of next edge)
+			lw		$t1, 12($a0)		# load size_of_edge from ntwrk
+			add	$t0, $t0, $t1			# $t0 = $t0 + $t1 (get address of next edge)
 			addi	$t2, $t2, 1			# $t2 = $t2 + 1 (i++)
 			j		search_edges_for_relation				# jump to search_edges_for_relation
 	# *** end of loop ***		

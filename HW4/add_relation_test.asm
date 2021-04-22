@@ -55,7 +55,7 @@ main:
 	# add relation between those two people
 	la $a0, Network
 	move $a1, $s0 # pass address of person1
-	move $a2, $s0 # pass address of person2
+	move $a2, $s1 # pass address of person2
 	jal add_relation
 	
 	# terminate 
