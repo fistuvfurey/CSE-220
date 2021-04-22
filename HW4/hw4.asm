@@ -277,11 +277,132 @@ get_person:
 		lw		$ra, 0($sp)
 		addi	$sp, $sp, 4			# $sp = $sp + 4
 		jr $ra
-		
+
 is_relation_exists:
-	jr $ra
+	# $a0 = ntwrk
+	# $a1 = person1
+	# $a2 = person2
+
+	addi	$t0, $a0, 96			# $t0 = $a0 + 96 (current_edge)
+	li		$t2, 0		# $t2 = 0 (int i = 0)
+	lw		$t3, 20($a0)		# load curr_num_of_edges from ntwrk
+	# this loops while i < curr_num_of_edges
+	search_edges_for_relation:
+		beq		$t2, $t3, relation_dne	# if $t2 == $t3 then relation_dne (if i == curr_num_of_edges) 
+		# else check this edge
+		lw		$t1, 0($t0)		# load address of person from current_edge
+		# if this person == person1 || person2 then check second person
+		beq		$t1, $a1, check_second_person	# if $t1 == $a1 then check_second_person (if this person == person1 then check_second_person)
+		beq		$t1, $a2, check_second_person	# if $t1 == $a2 then check_second_person (if this person == person2 then check_second_person)
+		# else this is not the relation, move on to next edge
+		j		get_next_edge				# jump to get_next_edge
+
+		check_second_person:
+			lw		$t1, 4($t0)		# load address of person from current_edge
+			# if this person == person1 || person2 then relation_exists
+			beq		$t1, $a1, relation_exists	# if $t1 == $a1 then relation_exists (if this person == person1 then relation_exists)
+			beq		$t1, $a2, relation_exists	# if $t1 == $a2 then relation_exists (if this person == person2 then relation_exists)
+			# else this is not the relation, move on to next edge
+			
+		get_next_edge:
+			addi	$t0, $t0, 12			# $t0 = $t0 + 12 (get base address of next edge)
+			addi	$t2, $t2, 1			# $t2 = $t2 + 1 (i++)
+			j		search_edges_for_relation				# jump to search_edges_for_relation
+	# *** end of loop ***		
+
+	relation_exists:
+		li		$v0, 1		# $v0 = 1 (return 1)
+		j		return_is_relation_exists				# jump to return_is_relation_exists
+		
+	relation_dne:
+		li		$v0, 0		# $v0 = 0 (return 0)
+
+	return_is_relation_exists:	
+		jr $ra
+		
 add_relation:
-	jr $ra
+	addi	$sp, $sp, -16			# $sp = $sp + -16
+	sw		$s0, 0($sp)		# ntwrk
+	sw		$s1, 4($sp)		# person1
+	sw		$s2, 8($sp)		# person2
+	sw		$ra, 12($sp)		# save return address 
+	
+	# save arguments
+	move 	$s0, $a0		# $s0 = $a0 (save ntwrk)
+	move 	$s1, $a1		# $s1 = $a1 (save person1)
+	move 	$s2, $a2		# $s2 = $a2 (save person2)
+
+	# CHECK TO SEE IF ANY OF THE CONDITIONS HAVE BEEN VIOLATED
+	# check to see if person1 exists 
+	move 	$a0, $s0		# $a0 = $s0 (pass ntwrk)
+	move 	$a1, $s1		# $a1 = $s1 (pass person1)
+	jal		is_person_exists				# jump to is_person_exists and save position to $ra
+	beqz $v0, invalid_person_dne 	# if return value == 0 then person1 DNE
+	# else person1 exists so check to see if person2 exists
+	move 	$a0, $s0		# $a0 = $s0 (pass ntwrk)
+	move 	$a1, $s1		# $a1 = $s1 (pass person2)
+	jal		is_person_exists				# jump to is_person_exists and save position to $ra
+	beqz $v0, invalid_person_dne 	# if return value == 0 then person2 DNE
+	# else check to see if ntwrk is at capacity
+	lw		$t0, 4($s0)		# load total_edges from ntwrk
+	lw		$t1, 20($s0)		# load curr_num_of_edges from ntwrk
+	beq		$t0, $t1, ntwrk_at_capacity	# if $t0 == $t1 then ntwrk_at_capacity (if total_edges == curr_num_of_edges then ntwrk is at capacity)
+	# else check to see if a relation already exists between person1 and person2
+	move 	$a0, $s0		# $a0 = $s0 (pass ntwrk)
+	move 	$a1, $s1		# $a1 = $s1 (pass person1)
+	move 	$a2, $s2		# $a2 = $s2 (pass person2)
+	jal		is_relation_exists				# jump to is_relation_exists and save position to $ra
+	li		$t0, 1		# $t0 = 1
+	beq		$t0, $v0, relation_already_exists	# if $t0 == $v0 then relation_already_exists (if return value == 1 then relation_already_exists)
+	# else check if person1 and person2 are the same person
+	beq		$s1, $s2, same_person	# if $s1 == $s2 then same_person (if the two addresses for the two person equal then they are the same person)
+	# else add relation
+
+	# ADD RELATION
+	# get the address of the new edge
+	addi	$t2, $s0, 96			# $t2 = $s0 + 96 (get base address of edges)
+	# get offset for new edge
+	lb		$t0, 20($s0)		# load curr_num_of_edges from ntwrk
+	lb		$t1, 12($s0)		# load size_of_edge from ntwrk
+	# offset = curr_num_of_edges * size_of_edge
+	mult	$t0, $t1			# $t0 * $t1 = Hi and Lo registers
+	mflo	$t0					# copy Lo to $t0 ($t0 = offset)
+	add		$t2, $t2, $t0		# $t2 = $t2 + $t0 (add offset to base address to get new edge)
+	sw		$s1, 0($t2)		# load person1 as first 4 bytes of new edge
+	sw		$s2, 4($t2)		# load person2 as next 4 bytes of new edge
+	li		$t0, 0		# $t0 = 0
+	sw		$t0, 8($t2)		# set realation_property = 0 (last 4 bytes of edge)
+	# increment curr_num_of_edges in ntwrk 
+	lw		$t0, 20($s0)		# load curr_num_of_edges from ntwrk
+	addi	$t0, $t0, 1			# $t0 = $t0 + 1 (curr_num_of_edges++)
+	sw		$t0, 20($s0)		# update curr_num_of_edges in ntwrk
+	li		$v0, 1		# $v0 = 1 (return 1)
+	j		return_add_relation				# jump to return_add_relation
+	
+	# INVALID CASES 
+	invalid_person_dne:
+		li		$v0, 0		# $v0 = 0 (return 0)
+		j		return_add_relation				# jump to return_add_relation
+		
+	ntwrk_at_capacity:
+		li		$v0, -1		# $v0 = -1 (return -1) 
+		j		return_add_relation				# jump to return_add_relation
+
+	relation_already_exists:
+		li		$v0, -2		# $v0 = -2 (return -2)
+		j		return_add_relation				# jump to return_add_relation
+
+	same_person:
+		li		$v0, -3		# $v0 = -3 (return -3)
+		
+	return_add_relation:
+		lw		$s0, 0($sp)
+		lw		$s1, 4($sp)
+		lw		$s2, 8($sp)
+		lw		$ra, 12($sp)
+		addi	$sp, $sp, 16			# $sp = $sp + 16
+		jr $ra
+
 add_relation_property:
 	jr $ra
 is_friend_of_friend:

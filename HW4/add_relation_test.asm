@@ -22,13 +22,43 @@ Network:
 
 .text:
 main:
+	# create person1
 	la $a0, Network
-	la $a1, Name1
-	la $a2, Name2
+	jal create_person
+	move $s0, $v0  # save person1 address
+	 
+	# add name1 to newly created person1 
+	la $a0, Network
+	move $a1, $v0 # pass newly created person1 address
+	la $a2, Name_prop 
+	la $a3, Name1
+	jal add_person_property
+	
+	# create person2
+	la $a0, Network
+	jal create_person
+	move $s1, $v0 # save person2 address
+	
+	# add name2 to newly created person2
+	la $a0, Network
+	move $a1, $v0 # pass newly created person2 address
+	la $a2, Name_prop
+	la $a3, Name2
+	jal add_person_property
+	
+	# add relation between those two people
+	la $a0, Network
+	move $a1, $s0 # pass address of person1
+	move $a2, $s1 # pass address of person2
 	jal add_relation
 	
-	#write test code
+	# add relation between those two people
+	la $a0, Network
+	move $a1, $s0 # pass address of person1
+	move $a2, $s0 # pass address of person2
+	jal add_relation
 	
+	# terminate 
 	li $v0, 10
 	syscall
 	
