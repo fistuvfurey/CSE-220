@@ -5,6 +5,7 @@
 Name1: .asciiz "Cacophonix"
 Name2: .asciiz "Getafix"
 Name_prop: .asciiz "NAME"
+Frnd_prop: .asciiz "FRIEND"
 
 Network:
   .word 5   #total_nodes (bytes 0 - 3)
@@ -22,17 +23,51 @@ Network:
 
 .text:
 main:
+	# create person1
 	la $a0, Network
 	jal create_person
-	move $s0, $a0
+	move $s0, $v0 # save person1
 	
+	li $v0, 1
+	move $a0, $s0
+	syscall
+	
+	li $v0, 11
+	li $a0, '\n'
+	syscall
+	
+	# create person2
 	la $a0, Network
-	la $a1, Name1
-	move $a2, $s0
+	jal create_person
+	move $s1, $v0 # save person2
+	
+	li $v0, 1
+	move $a0, $s1
+	syscall
+	
+	# add realation between person1 and person2
+	la $a0, Network
+	move $a1, $s0 # pass person1
+	move $a2, $s1 # pass person2
+	jal add_relation
+	
+	# add friendship property between person1 and person2
+	la $a0, Network
+	move $a1, $s0 # person1
+	move $a2, $s1 # pass person2
+	la $a3, Frnd_prop
+	addi $sp, $sp, -4
+	li $t0, 1
+	sw $t0, 0($sp) 
+	jal add_relation_property
+	
+	# call is_relation_exists 
+	la $a0, Network
+	move $a1, $s0 # pass person1
+	move $a2, $s1 # pass person2
 	jal is_relation_exists
 	
-	#write test code
-	
+	# terminate
 	li $v0, 10
 	syscall
 	

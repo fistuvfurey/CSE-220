@@ -313,10 +313,12 @@ is_relation_exists:
 
 	relation_exists:
 		li		$v0, 1		# $v0 = 1 (return 1)
+		lw		$v1, 8($t0)		# return relationship property from edge
 		j		return_is_relation_exists				# jump to return_is_relation_exists
 		
 	relation_dne:
 		li		$v0, 0		# $v0 = 0 (return 0)
+		li		$v1, 0		# $v1 = 0 (return 0) 
 
 	return_is_relation_exists:	
 		jr $ra
@@ -486,6 +488,143 @@ add_relation_property:
 		lw		$ra, 20($sp)
 		addi	$sp, $sp, 24			# $sp = $sp + 24
 		jr $ra
-		
+
 is_friend_of_friend:
-	jr $ra
+	addi	$sp, $sp, -32			# $sp = $sp + -32
+	sw		$s0, 0($sp)		# ntwrk
+	sw		$s1, 4($sp)		# name1/person1
+	sw		$s2, 8($sp)		# name2/person2
+	sw		$s3, 12($sp)		# friends[] count
+	sw		$s4, 16($sp)		# int i
+	sw		$s5, 20($sp)		# friends[]
+	sw		$s6, 24($sp)		# space_allocated
+	sw		$ra, 28($sp)		# save return address
+
+	# save arguments
+	move 	$s0, $a0		# $s0 = $a0 (save ntwrk)
+	move 	$s1, $a1		# $s1 = $a1 (save name1)
+	move 	$s2, $a2		# $s2 = $a2 (save name2)
+
+	# check to see if name1 exists in the ntwrk
+	move 	$a0, $s0		# $a0 = $s0 (pass ntwrk)
+	move 	$a1, $s1		# $a1 = $s1 (pass name1)
+	jal		get_person				# jump to get_person and save position to $ra
+	beqz $v0, name_dne		# if return value == 0 then name1 dne in ntwrk
+	# else save person1 address
+	move 	$s1, $v0		# $s1 = $v0 (save person1 address)
+	# check to see if name2 exists in the ntwrk
+	move 	$a0, $s0		# $a0 = $s0 (pass ntwrk)
+	move 	$a1, $s2		# $a1 = $s1 (pass name2)
+	jal		get_person				# jump to get_person and save position to $ra
+	beqz $v0, name_dne 		# if return value == 0 then name2 dne in ntwrk
+	# else save person2 address
+	move 	$s2, $v0		# $s2 = $v0 (save person2 address) 
+	# verify that person1 and person2 aren't related
+	move 	$a0, $s0		# $a0 = $s0 (pass ntwrk)
+	move 	$a1, $s1		# $a1 = $s1 (pass person1)
+	move 	$a2, $s2		# $a2 = $s2 (pass person2)
+	jal		is_relation_exists				# jump to is_relation_exists and save position to $ra
+	li		$t0, 1		# $t0 = 1
+	beq		$t0, $v1, not_friend_of_friend	# if $t0 == $v1 then not_friend_of_friend (if return value == 1 then not_friend_of_friend
+
+	# loop through edges and add any friends of person1 to the friends array 
+	addi	$t0, $s0, 96			# $t0 = $s0 + 96 (current_edge)
+	li		$t1, 0		# $t1 = 0 (int i = 0)
+	lw		$t2, 20($s0)		# get curr_num_of_edges from ntwrk
+	# allocate space for friends array on the stack
+	li		$t3, 4		# $t3 = 4
+	mult	$t3, $t2			# $t3 * $t2 = Hi and Lo registers
+	mflo	$t3					# copy Lo to $t3 (amount we need to allocate on the stack)
+	sub		$sp, $sp, $t3		# $sp = $sp - $t3 (allocate space on stack for friends[])
+	move 	$t4, $sp		# $t4 = $sp (copy $sp to get base address of friends[])
+	li		$s3, 0		# $s3 = 0 (initialize friends[] count to 0. 
+	iterate_edges:
+		beq		$t2, $t1, search_for_common_friends	# if $t2 == $t1 then search_for_common_friends (if i == curr_num_of_edges)
+		# else check this edge
+		lw		$t6, 0($t0)		# load p1 from current_edge
+		beq		$t6, $s1, p1_is_person1	# if $t6 == $s1 then p1_is_person1
+		# else check to see if p2 == person1
+		lw		$t5, 4($t0)		# load p2 from current_edge
+		beq		$t5, $s1, p2_is_person1	# if $t5 == $s1 then p2_is_person1
+		# else p1 and p2 both aren't person1 so check next edge
+		j		not_friend				# jump to not_friend
+		
+		p1_is_person1:
+			# check to see if they have friend_property
+			lw		$t7, 8($t0)		# load friend_property from edge
+			beqz $t7, not_friend	# if friend_property == 0 then this is not a friendship 
+			# else this is a friendship
+			lw		$t6, 4($t0)		# load p2 from current_edge
+			sw		$t6, 0($t4)		# add p2 to friends[]
+			addi	$t4, $t4, 4			# $t4 = $t4 + 4 (increment address of friends[])
+			addi	$t1, $t1, 1			# $t1 = $t1 + 1 (i++)
+			addi	$s3, $s3, 1			# $s3 = $s3 + 1 (increment friends[] count)
+			lw		$t7, 12($s0)		# load size_of_edge from ntwrk
+			add		$t0, $t0, $t7		# $t0 = $t0 + $t7 (get next edge)
+			j		iterate_edges				# jump to iterate_edges
+
+		p2_is_person1:
+			lw		$t7, 8($t0)		# load friend_property from edge
+			beqz $t7, not_friend	# if friend_property == 0 then this is not a friendship 
+			# else this is a friendship
+			sw		$t6, 0($t4)		# add p1 to friends[]
+			addi	$t4, $t4, 4			# $t4 = $t4 + 4 (increment address of friends[])
+			addi	$t1, $t1, 1			# $t1 = $t1 + 1 (i++)
+			addi	$s3, $s3, 1			# $s3 = $s3 + 1 (increment friends[] count)
+			lw		$t7, 12($s0)		# load size_of_edge from ntwrk
+			add		$t0, $t0, $t7		# $t0 = $t0 + $t7 (get next edge)
+			j		iterate_edges				# jump to iterate_edges
+			
+		not_friend:
+			addi	$t1, $t1, 1			# $t1 = $t1 + 1 (i++)
+			lw		$t7, 12($s0)		# load size_of_edge from ntwrk
+			add		$t0, $t0, $t7		# $t0 = $t0 + $t7 (get next edge)
+			j		iterate_edges				# jump to iterate_edges
+	# *** end of loop ***
+
+	search_for_common_friends:
+		move 	$s6, $t3		# $s6 = $t3 (copy space_allocated to saved register)
+		move 	$s5, $t4		# $s5 = $t4 (copy friends[] address to saved register)
+		addi	$s5, $s5, -4			# $s5 = $s5 + -4 (get first friend in friends[])
+		# loop for every friend in friends[] and check to see if a relation exists between a friend and person2
+		li		$s4, 0		# $s4 = 0 (int i = 0)
+	for_friend_in_friends:
+		# if we've reached the end of the friends[] and we still haven't found a friendship between a friend and person2 then return not_friend_of_friend
+		beq		$s4, $s3, not_friend_of_friend	# if $t0 == $s3 then not_friend_of_friend (i == friends.length)
+		# else check to see if a friendship exists between this friend and person2
+		lw		$t1, 0($s5)		# load friend from friends[]
+		move 	$a0, $s0		# $a0 = $s0 (pass ntwrk)
+		move 	$a1, $s2		# $a1 = $s2 (pass person2)
+		move 	$a2, $t1		# $a2 = $t1 (pass friend)
+		jal		is_relation_exists				# jump to is_relation_exists and save position to $ra
+		li		$t1, 1		# $t1 = 1
+		beq		$v0, $t1, is_friend		# if $v0 == $t1 then is_friend (if this is a friend of person2 then return is_friend_of_friend
+		# else they are not friends so check next friend in friends[]
+		addi	$s5, $s5, -4			# $s5 = $s5 + -4 (get address of next friend)
+		addi	$s4, $s4, 1			# $s4 = $s4 + 1 (i++)
+		j		for_friend_in_friends				# jump to for_friend_in_friends
+	# *** end of loop *** 	
+
+	not_friend_of_friend:
+		li		$v0, 0		# $v0 = 0 (return 0)
+		j		return_friend_of_friend				# jump to return_if_friend_of_friend
+
+	name_dne:
+		li		$v0, -1		# $v0 = -1 (return -1)
+		j		return_friend_of_friend				# jump to return_friend_of_friend
+
+	is_friend:
+		li		$v0, 1		# $v0 = 1 (return 1)
+		
+	return_friend_of_friend:
+		add		$sp, $sp, $s6		# $sp = $sp + $s6 (reallocate space on stack from friends[])
+		lw		$s0, 0($sp)
+		lw		$s1, 4($sp)
+		lw		$s2, 8($sp)
+		lw		$s3, 12($sp)
+		lw		$s4, 16($sp)
+		lw		$s5, 20($sp)
+		lw		$s6, 24($sp)
+		lw		$ra, 28($sp)
+		addi	$sp, $sp, 32			# $sp = $sp + 32
+		jr $ra
