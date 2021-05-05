@@ -1,5 +1,5 @@
 .data
-pair: .word 12 8
+pair: .word 3 -3
 p: .word 0
 
 .text:
