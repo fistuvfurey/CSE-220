@@ -1,12 +1,12 @@
 .data
-origin_pocket: .byte 4
+origin_pocket: .byte 3
 .align 2
 state:        
     .byte 0         # bot_mancala       	(byte #0)
     .byte 0         # top_mancala       	(byte #1)
     .byte 6         # bot_pockets       	(byte #2)
     .byte 6         # top_pockets        	(byte #3)
-    .byte 1         # moves_executed	(byte #4)
+    .byte 0         # moves_executed	(byte #4)
     .byte 'B'    # player_turn        		(byte #5)
     # game_board                     		(bytes #6-end)
     .asciiz

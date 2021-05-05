@@ -519,6 +519,8 @@ is_friend_of_friend:
 	beqz $v0, name_dne 		# if return value == 0 then name2 dne in ntwrk
 	# else save person2 address
 	move 	$s2, $v0		# $s2 = $v0 (save person2 address) 
+	# verify person1 and person2 aren't the same person
+	beq		$s1, $s2, not_friend_of_friend	# if $s1 == $s2 then not_friend_of_friend
 	# verify that person1 and person2 aren't related
 	move 	$a0, $s0		# $a0 = $s0 (pass ntwrk)
 	move 	$a1, $s1		# $a1 = $s1 (pass person1)
@@ -598,7 +600,7 @@ is_friend_of_friend:
 		move 	$a2, $t1		# $a2 = $t1 (pass friend)
 		jal		is_relation_exists				# jump to is_relation_exists and save position to $ra
 		li		$t1, 1		# $t1 = 1
-		beq		$v0, $t1, is_friend		# if $v0 == $t1 then is_friend (if this is a friend of person2 then return is_friend_of_friend
+		beq		$v1, $t1, is_friend		# if $v1 == $t1 then is_friend (if this is a friend of person2 then return is_friend_of_friend
 		# else they are not friends so check next friend in friends[]
 		addi	$s5, $s5, -4			# $s5 = $s5 + -4 (get address of next friend)
 		addi	$s4, $s4, 1			# $s4 = $s4 + 1 (i++)

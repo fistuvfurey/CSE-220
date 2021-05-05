@@ -5,6 +5,8 @@
 Name1: .asciiz "Cacophonix"
 Name2: .asciiz "Getafix"
 Name3: .asciiz "Aidan"
+Name4: .asciiz "Navan"
+Name5: .asciiz "Noname"
 Name_prop: .asciiz "NAME"
 Frnd_prop: .asciiz "FRIEND"
 
@@ -38,6 +40,18 @@ main:
 	la $a0, Network
 	jal create_person
 	move $s2, $v0 # save address of person3
+	
+	# create person4
+	la $a0, Network
+	jal create_person
+	move $s3, $v0 # save address of person4
+	
+	# name person4
+	la $a0, Network
+	move $a1, $s3 # pass person4
+	la $a2, Name_prop
+	la $a3, Name4
+	jal add_person_property
 	
 	# name person1
 	la $a0, Network
@@ -87,6 +101,23 @@ main:
 	la $a0, Network
 	move $a1, $s1 # pass person2
 	move $a2, $s2 # pass person3
+	la $a3, Frnd_prop
+	# pass friendship value 
+	addi $sp, $sp, -4
+	li $t0, 1
+	sw $t0, 0($sp)
+	#jal add_relation_property
+	
+	# add relationship between person4 and person1
+	la $a0, Network
+	move $a1, $s0 # pass person1
+	move $a2, $s3 # pass person4
+	jal add_relation
+	
+	# make person1 and person4 friends
+	la $a0, Network
+	move $a1, $s0 # pass person1
+	move $a2, $s3 # pass person4
 	la $a2, Frnd_prop
 	# pass friendship value 
 	addi $sp, $sp, -4
