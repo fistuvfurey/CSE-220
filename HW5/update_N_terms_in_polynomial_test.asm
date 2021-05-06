@@ -1,9 +1,9 @@
 .data
-pair: .word 12 8
-terms: .word 16 5 1 8 0 -1
-new_terms: .word 16 3 1 5 0 -1
+pair: .word 4 3
+terms: .word 2 2 5 0 0 -1
+new_terms: .word 1 3 3 3 1 0 0 -1
 p: .word 0
-N: .word 3
+N: .word -1
 
 .text:
 main:

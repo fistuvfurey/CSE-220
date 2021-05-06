@@ -1,8 +1,8 @@
 .data
 pair: .word 12 8
-terms: .word 2 2 4 3 5 0 0 -1
+terms: .word 1 2 3 3 1 0 0 -1
 p: .word 0
-N: .word -1
+N: .word 3
 
 .text:
 main:

@@ -59,7 +59,7 @@ init_polynomial:
 add_N_terms_to_polynomial:
 	addi	$sp, $sp, -36			# $sp = $sp + -36
 	sw		$s0, 0($sp)		# p
-	sw		$s1, 4($sp)		# terms
+	sw		$s1, 4($sp)		# terms[]
 	sw		$s2, 8($sp)		# N
 	sw		$s3, 12($sp)		# current_node
 	sw		$s4, 16($sp)		# term.exp
@@ -153,8 +153,81 @@ add_N_terms_to_polynomial:
 		lw		$ra, 32($sp)
 		addi	$sp, $sp, 36			# $sp = $sp + 36
 		jr $ra
+		
 update_N_terms_in_polynomial:
-	jr $ra
+	# $t0 = current_node
+	# $t1 = t.exp
+	# $t2 = current_node.exp
+	# $t3 = base address of updated[]
+	# $t6 = first free index of updated[]
+	addi	$sp, $sp, -16			# $sp = $sp + -16
+	sw		$s0, 0($sp)		# p
+	sw		$s1, 4($sp)		# terms[]
+	sw		$s2, 8($sp)		# N
+	sw		$s3, 12($sp)		# No. of terms updated
+
+	# save arguments
+	move 	$s0, $a0		# $s0 = $a0 (save p)
+	move 	$s1, $a1		# $s1 = $a1 (save terms)
+	move 	$s2, $a2		# $s2 = $a2 (save N)
+
+	li		$s3, 0		# $s3 = 0 (initialize No. of terms updated to 0)
+
+	# allocate 4 bytes for base address of updated[]
+	li		$a0, 4		# $a0 = 4 (allocate for 4 bytes)
+	li		$v0, 9		# $v0 = 9
+	syscall
+	move 	$t3, $v0		# $t3 = $v0 (save newly allocated memory buffer as base address of updated[])
+	move 	$t6, $t6		# $t6 = $t6 (copy address of updated[])
+
+	for_t_in_terms:
+		blez $s2, return_update_N_terms_in_polynomial 		# if N <= 0 then return
+		lw		$t0, 0($s0)		# set current_node to head
+
+		search_for_t_in_polynomial:
+			lw		$t1, 4($s1)		# load t.exp
+			bltz $t1, return_update_N_terms_in_polynomial		# if t.exp is less than 0 then return
+			lw		$t2, 4($t0)		# load current_node.exp
+			beq		$t2, $t1, check_if_already_updated	# if $t2 == $t1 then check_if_already_updated (if current_node.exp == t.exp)
+			lw		$t0, 8($t0)		# current_node = current_node.next
+			beqz $t0, get_next_t	# if current_node == null then move on to the next t
+			j		search_for_t_in_polynomial				# jump to search_for_t_in_polynomial (else keep searching for term in polynomial)
+
+			get_next_t:
+				addi	$s1, $s1, 8			# $s1 = $s1 + 8 (increment terms[])
+				j		for_t_in_terms				# jump to for_t_in_terms
+
+			check_if_already_updated:
+				move 	$t5, $t3		# $t5 = $t3 (copy base address of updated[])
+				for_exp_in_updated:
+					lw		$t4, 0($t5)		# load exp from updated[]
+					beqz $t4, first_update	# if $t4 == null then we have reached the end of updated[] so this term has not been updated yet (break)
+					beq		$t4, $t1, already_updated	# if $t4 == $t1 then already_updated (if t.exp == exp)
+					addi	$t5, $t5, 4			# $t5 = $t5 + 4 (else increment updated[])
+					j		for_exp_in_updated				# jump to for_exp_in_updated (exp != t.exp so keep searching)
+
+				already_updated:
+					lw		$t5, 0($s1)		# load t.coeff
+					sw		$t5, 0($t0)		# update coeff of current_node
+					j		get_next_t				# jump to get_next_t
+					
+				first_update:
+					lw		$t5, 0($s1)		# load t.coeff
+					sw		$t5, 0($t0)		# update coeff of current_node
+					addi	$s2, $s2, -1			# $s2 = $s2 + -1 (N--)
+					addi	$s3, $s3, 1			# $s3 = $s3 + 1 (increment No. of terms updated)
+					sw		$t1, 0($t3)		# put t.exp in updated[]
+					addi	$t6, $t6, 4			# $t6 = $t6 + 4 (update address of next free index of updated[])
+					j		get_next_t				# jump to get_next_t	
+	
+	return_update_N_terms_in_polynomial:
+		move 	$v0, $s3		# $v0 = $s3 (return No. of terms updated)
+		lw		$s0, 0($sp)
+		lw		$s1, 4($sp)
+		lw		$s2, 8($sp)
+		lw		$s3, 12($sp)
+		addi	$sp, $sp, 16			# $sp = $sp + 16
+		jr $ra
 get_Nth_term:
 	jr $ra
 remove_Nth_term:
