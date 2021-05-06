@@ -264,9 +264,59 @@ get_Nth_term:
 		lw		$s1, 4($sp)
 		addi	$sp, $sp, 8			# $sp = $sp + 8
 		jr $ra
-		
+
 remove_Nth_term:
-	jr $ra
+	# $t0 = current_node_number
+	# $t1 = current_node
+	# $t2 = prev_node
+	addi	$sp, $sp, -8			# $sp = $sp + -8
+	sw		$s0, 0($sp)		# p
+	sw		$s1, 4($sp)		# N
+
+	# save arguments
+	move 	$s0, $a0		# $s0 = $a0 (save p)
+	move 	$s1, $a1		# $s1 = $a1 (save N)
+
+	li		$t0, 1		# $t0 = 1 (current_node_number)
+	# check to see if the term to remove is the head
+	beq		$t0, $s1, remove_head	# if $t0 == $s1 (if current_node_number == N then remove_head)
+	addi	$t0, $t0, 1			# $t0 = $t0 + 1 (current_node_number++)
+	lw		$t1, 0($s0)		# current_node = head
+	move 	$t2, $t1		# $t2 = $t1 (prev_node = head)
+	lw		$t1, 8($t1)		# current_node = head.next
+
+	while_current_node_not_term_to_remove:	
+		beq		$t0, $s1, remove_this_term	# if $t0 == $s1 then remove_this_term
+		addi	$t0, $t0, 1			# $t0 = $t0 + 1 (current_node_number++)
+		lw		$t1, 8($t1)		# current_node = current_node.next
+		beqz $t1, term_not_found	# if current_node.next == null then we have reached the end of the list and the term was not found
+		j		while_current_node_not_term_to_remove				# jump to while_current_node_not_term_to_remove
+		
+	remove_head:
+		lw		$t0, 0($s0)		# get head from p
+		lw		$v0, 4($t0)		# return head.exp
+		lw		$v1, 0($t0)		# return head.coeff
+		lw		$t0, 8($t0)		# load head.next
+		sw		$t0, 0($s0)		# head = head.next
+		j		return_remove_Nth_term				# jump to return_remove_Nth_term
+		
+	remove_this_term:
+		lw		$v0, 4($t1)		# return current_node.exp
+		lw		$v1, 0($t1)		# return current_node.coeff
+		lw		$t0, 8($t1)		# $t0 = current_node.next
+		sw		$t0, 8($t2)		# prev_node.next = current_node.next
+		j		return_remove_Nth_term				# jump to return_remove_Nth_term
+		
+	term_not_found:
+		# (return (-1, 0)
+		li		$v0, -1		# $v0 = -1
+		li		$v1, 0		# $v1 = 0
+
+	return_remove_Nth_term:
+		lw		$s0, 0($sp)
+		lw		$s1, 4($sp)
+		addi	$sp, $sp, 8			# $sp = $sp + 8
+		jr $ra
 add_poly:
 	jr $ra
 mult_poly:

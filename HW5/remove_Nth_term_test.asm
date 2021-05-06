@@ -1,9 +1,9 @@
 .data
-pair: .word 12 8
-terms: .word 16 5 1 8 0 -1
+pair: .word 4 3
+terms: .word 2 2 5 0 0 -1
 p: .word 0
 N: .word 3
-N1: .word 2
+N1: .word 1
 
 .text:
 main:
@@ -21,6 +21,9 @@ main:
     jal remove_Nth_term
 
     #write test code
+    la $a0, p
+    li $a1, 1
+    jal get_Nth_term 
 
     li $v0, 10
     syscall
