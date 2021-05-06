@@ -228,8 +228,43 @@ update_N_terms_in_polynomial:
 		lw		$s3, 12($sp)
 		addi	$sp, $sp, 16			# $sp = $sp + 16
 		jr $ra
+
 get_Nth_term:
-	jr $ra
+	# t0 = current_node_number
+	# $t1 = current_node
+	addi	$sp, $sp, -8			# $sp = $sp + -8
+	sw		$s0, 0($sp)		# p
+	sw		$s1, 4($sp)		# N
+
+	# save arguments
+	move 	$s0, $a0		# $s0 = $a0 (save p) 
+	move 	$s1, $a1		# $s1 = $a1 (save N)
+
+	li		$t0, 1		# $t0 = 1 (current_node_number)
+	lw		$t1, 0($s0)		# set current_node to head
+	while_current_node_not_N:
+		beq		$t0, $s1, return_this_node	# if $t0 == $s1 then return_this_node (if current_node_number == N then break)
+		addi	$t0, $t0, 1			# $t0 = $t0 + 1 (current_node_number++)
+		lw		$t1, 8($t1)		# current_node = current_node.next
+		beqz $t1, term_dne		# if current_node.next == null then we have reached the end of list so the term DNE 
+		j		while_current_node_not_N				# jump to while_current_node_not_N
+	
+	return_this_node:
+		lw		$v0, 4($t1)		# return current_node.exp
+		lw		$v1, 0($t1)		# return current_node.coeff
+		j		return_Nth_term				# jump to return_Nth_term
+		
+	term_dne:
+		# return (-1, 0)
+		li		$v0, -1		# $v0 = -1
+		li		$v1, 0		# $v1 = 0
+
+	return_Nth_term:
+		lw		$s0, 0($sp)
+		lw		$s1, 4($sp)
+		addi	$sp, $sp, 8			# $sp = $sp + 8
+		jr $ra
+		
 remove_Nth_term:
 	jr $ra
 add_poly:
