@@ -1,8 +1,8 @@
 .data
-pair: .word 12 8
-terms: .word 1 2 3 3 1 0 0 -1
+pair: .word 1 3
+terms: .word 3 3 2 2 0 -1
 p: .word 0
-N: .word 3
+N: .word 1
 
 .text:
 main:
@@ -16,6 +16,9 @@ main:
     jal add_N_terms_to_polynomial
 
     #write test code
+    la $a0, p
+    li $a1, 1
+    jal get_Nth_term
 
     li $v0, 10
     syscall

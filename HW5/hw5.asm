@@ -98,6 +98,8 @@ add_N_terms_to_polynomial:
 		lw		$t0, 4($s3)		# load head.exp
 		lw		$t1, 4($s7)		# load new_term.exp
 		bgt		$t1, $t0, new_term_is_new_head	# if $t1 > $t0 then new_term_is_new_head
+		# check to see if new_term.exp == head.exp
+		beq		$t0, $t1, get_next_term	# if $t0 == $t1 then get_next_term
 		j		check_next_node				# else jump to check_next_node
 		
 		new_term_is_new_head:
@@ -291,7 +293,7 @@ remove_Nth_term:
 		lw		$t1, 8($t1)		# current_node = current_node.next
 		beqz $t1, term_not_found	# if current_node.next == null then we have reached the end of the list and the term was not found
 		j		while_current_node_not_term_to_remove				# jump to while_current_node_not_term_to_remove
-		
+
 	remove_head:
 		lw		$t0, 0($s0)		# get head from p
 		lw		$v0, 4($t0)		# return head.exp
@@ -318,6 +320,21 @@ remove_Nth_term:
 		addi	$sp, $sp, 8			# $sp = $sp + 8
 		jr $ra
 add_poly:
+	addi	$sp, $sp, -20			# $sp = $sp + -20
+	sw		$s0, 0($sp)		# p
+	sw		$s1, 4($sp)		# q
+	sw		$s2, 8($sp)		# r
+	sw		$s3, 12($sp)		# N
+	sw		$ra, 16($sp)		# save return address 
+	
+	# save arguments
+	move 	$s0, $a0		# $s0 = $a0 (save p)
+	move 	$s1, $a1		# $s1 = $a1 (save q)
+	move 	$s2, $a2		# $s2 = $a2 (save r)
+
+	
+	
+	
 	jr $ra
 mult_poly:
 	jr $ra
