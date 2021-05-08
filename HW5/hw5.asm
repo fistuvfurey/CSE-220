@@ -319,6 +319,7 @@ remove_Nth_term:
 		lw		$s1, 4($sp)
 		addi	$sp, $sp, 8			# $sp = $sp + 8
 		jr $ra
+
 add_poly:
 	addi	$sp, $sp, -36			# $sp = $sp + -36
 	sw		$s0, 0($sp)		# p
@@ -354,7 +355,7 @@ add_poly:
 		beqz $v1, add_failure	# if q is also empty then add_failure
 
 	create_terms_array:
-		# allocate 4 bytes on the heap for base address of terms[]
+		# allocate space on the heap for base address of terms[]
 		li		$a0, 0xFFFF		# $a0 = 4 (allocate for 4 bytes)
 		li		$v0, 9		# $v0 = 9
 		syscall
@@ -401,15 +402,16 @@ add_poly:
 		exps_are_equal:
 			# add coeffs
 			add		$t1, $v1, $t1		# $t0 = $v1 + $t0 (r.coeff = q.coeff + p.coeff)
-			beqz $t1, add_failure		# if the coeffs cancel each other out then add_failure
+			beqz $t1, increment			# if terms cancel each other out then don't add this term		
 			sw		$t1, 0($s6)		# store r.coeff in terms[]
 			# store exp in terms[]
 			sw		$t0, 4($s6)		# store exp in terms[]
-			addi	$s6, $s6, 8			# $s6 = $s6 + 8 (increment terms[] pointer)
-			addi	$s3, $s3, 1			# $s3 = $s3 + 1 (N.p++)
-			addi	$s4, $s4, 1			# $s4 = $s4 + 1 (N.q++)
-			addi	$s7, $s7, 1			# $s7 = $s7 + 1 (increment number of terms in terms[])
-			j		for_term_in_polynomial				# jump to for_term_in_polynomial
+			increment:
+				addi	$s6, $s6, 8			# $s6 = $s6 + 8 (increment terms[] pointer)
+				addi	$s3, $s3, 1			# $s3 = $s3 + 1 (N.p++)
+				addi	$s4, $s4, 1			# $s4 = $s4 + 1 (N.q++)
+				addi	$s7, $s7, 1			# $s7 = $s7 + 1 (increment number of terms in terms[])
+				j		for_term_in_polynomial				# jump to for_term_in_polynomial
 
 		p_exp_greater:
 			# add term from p to terms[]
@@ -461,6 +463,8 @@ add_poly:
 		# init r
 		move 	$a0, $s2		# $a0 = $s2 (pass r)
 		move 	$a1, $s5		# $a1 = $s5 (pass base address of terms)
+		lw		$t0, 0($a1)		# load first coeff from terms[]
+		beqz $t0, add_failure	# if the result polynomial r is empty then add_failure
 		jal		init_polynomial				# jump to init_polynomial and save position to $ra
 		bltz $v0, add_failure		# if return value is less than 0 then return add_failure
 		addi	$s5, $s5, 8			# $s5 = $s5 + 8	(increment base address of terms[])

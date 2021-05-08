@@ -6,7 +6,7 @@ q_terms: .word 1 1 1 5 5 12 4 3 0 -1
 p: .word 0
 q: .word 0
 r: .word 0
-N: .word 0
+N: .word 3
 
 .text:
 main:
