@@ -355,7 +355,7 @@ add_poly:
 
 	create_terms_array:
 		# allocate 4 bytes on the heap for base address of terms[]
-		li		$a0, 40		# $a0 = 4 (allocate for 4 bytes)
+		li		$a0, 0xFFFF		# $a0 = 4 (allocate for 4 bytes)
 		li		$v0, 9		# $v0 = 9
 		syscall
 		move 	$s5, $v0		# $s5 = $v0 (save base address of terms[])
@@ -401,6 +401,7 @@ add_poly:
 		exps_are_equal:
 			# add coeffs
 			add		$t1, $v1, $t1		# $t0 = $v1 + $t0 (r.coeff = q.coeff + p.coeff)
+			beqz $t1, add_failure		# if the coeffs cancel each other out then add_failure
 			sw		$t1, 0($s6)		# store r.coeff in terms[]
 			# store exp in terms[]
 			sw		$t0, 4($s6)		# store exp in terms[]

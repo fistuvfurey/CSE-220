@@ -1,12 +1,12 @@
 .data
 p_pair: .word 5 2
-p_terms: .word 7 1 0 -1
-q_pair: .word 3 2
-q_terms: .word 1 1 0 -1
+p_terms: .word 7 1 3 4 0 -1
+q_pair: .word -5 2
+q_terms: .word 1 1 1 5 5 12 4 3 0 -1
 p: .word 0
 q: .word 0
 r: .word 0
-N: .word 1
+N: .word 0
 
 .text:
 main:
@@ -33,9 +33,7 @@ main:
     la $a2, r
     jal add_poly
     
-    la $a0, r
-    li $a1, 1
-    jal get_Nth_term
+
 
     li $v0, 10
     syscall
