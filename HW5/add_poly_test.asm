@@ -32,8 +32,10 @@ main:
     la $a1, q
     la $a2, r
     jal add_poly
-
-    #write test code
+    
+    la $a0, r
+    li $a1, 1
+    jal get_Nth_term
 
     li $v0, 10
     syscall
