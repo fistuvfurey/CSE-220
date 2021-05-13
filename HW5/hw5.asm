@@ -371,23 +371,28 @@ add_poly:
 		move 	$a1, $s3		# $a1 = $s3 (pass N.p)
 		jal		get_Nth_term				# jump to get_Nth_term and save position to $ra
 		beqz $v1, add_remaining_terms		# check to see if we have reached the end of p
-		
-		# save p.coeff and p.exp
-		addi	$sp, $sp, -8			# $sp = $sp + -8
-		sw		$v0, 0($sp)		# (save p.exp)
-		sw		$v1, 4($sp)		# (save p.coeff)
+		move 	$t0, $v0		# $t0 = $v0 (save exp)
+		move 	$t1, $v1		# $t1 = $v1 (save coeff)
 
+		# make room on heap
+		li		$a0, 12		# $a0 = 12
+		li		$v0, 9		# $v0 = 9
+		syscall
+		sw		$s7, 0($v0)		# store no. of terms
+		sw		$t0, 4($v0)		# store exp
+		sw		$t1, 8($v0)		# store coeff
+		move 	$s7, $v0		# $s7 = $v0 (save address of array)
+		
 		# get term from q
 		move 	$a0, $s1		# $a0 = $s1 (pass q)
 		move 	$a1, $s4		# $a1 = $s3 (pass N.q)
 		jal		get_Nth_term				# jump to get_Nth_term and save position to $ra
 		beqz $v1, add_remaining_terms		# check to see if we have reached the end of q
 
-		# load p.exp and p.coeff
-		lw		$t0, 0($sp)		# load p.exp
-		lw		$t1, 4($sp)		# load p.coeff
-		addi	$sp, $sp, 8			# $sp = $sp + 8
-		
+		lw		$t0, 4($s7)		# load exp
+		lw		$t1, 8($s7)		# load coeff
+		lw		$s7, 0($s7)		# load no. of terms
+
 		# compare exps
 		# case 1 (p.exp == q.exp)
 		beq		$v0, $t0, exps_are_equal	# if $v1 == $t0 then exps_are_equal
@@ -438,7 +443,7 @@ add_poly:
 			sw		$v1, 0($s6)		# store q.coeff in terms[]
 			sw		$v0, 4($s6)		# store q.exp in terms[]
 			addi	$s6, $s6, 8			# $s6 = $s6 + 8 (increment terms[] pointer)
-			addi	$s4, $s4, 1			# $s4 = $s4 + 1 (N.p++)
+			addi	$s3, $s3, 1			# $s3 = $s3 + 1 (N.p++)
 			addi	$s7, $s7, 1			# $s7 = $s7 + 1 (increment number of terms in terms[])
 			j		while_p_not_empty				# jump to while_p_not_empty
 
@@ -595,19 +600,26 @@ mult_poly:
 			move 	$a1, $s4		# $a1 = $s3 (pass N.q)
 			jal		get_Nth_term				# jump to get_Nth_term and save position to $ra
 			beqz $v1, get_next_term_in_p		# check to see if we have reached the end of q
+			move 	$t0, $v0		# $t0 = $v0 (save exp)
+			move 	$t1, $v1		# $t1 = $v1 (save coeff)
 
-			addi	$sp, $sp, -8			# $sp = $sp + -8
-			sw		$v0, 0($sp)		# save q.exp
-			sw		$v1, 4($sp)		# save q.coeff
+			# create array to save coeff and exp
+			li		$a0, 12		# $a0 = 12
+			li		$v0, 9		# $v0 = 9
+			syscall 
+			sw		$s7, 0($v0)		# save no. of terms
+			sw		$t0, 4($v0)		# save exp
+			sw		$t1, 8($v0)		# save coeff
+			move 	$s7, $v0		# $s7 = $v0 (save address of array)
 
 			# get term from p
 			move 	$a0, $s0		# $a0 = $s0 (pass p)
 			move 	$a1, $s3		# $a1 = $s3 (pass N.p)
 			jal		get_Nth_term				# jump to get_Nth_term and save position to $ra
-
-			lw		$t0, 0($sp)		# load q.exp
-			lw		$t1, 4($sp)		# load q.coeff
-			addi	$sp, $sp, 8			# $sp = $sp + 8
+			
+			lw		$t0, 4($s7)		# load exp
+			lw		$t1, 8($s7)		# load coeff
+			lw		$s7, 0($s7)		# load no. of terms
 			
 			# add both exps to get new_exp
 			add		$t0, $t0, $v0		# $t0 = $t0 + $v0 (new_exp = q.exp + p.exp)

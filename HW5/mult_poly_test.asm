@@ -21,12 +21,12 @@ main:
 
     la $a0, q
     la $a1, q_pair
-    #jal init_polynomial
+    jal init_polynomial
 
     la $a0, q
     la $a1, q_terms
     lw $a2, N
-    #jal add_N_terms_to_polynomial
+    jal add_N_terms_to_polynomial
 
     la $a0, p
     la $a1, q
