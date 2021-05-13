@@ -175,8 +175,10 @@ update_N_terms_in_polynomial:
 
 	li		$s3, 0		# $s3 = 0 (initialize No. of terms updated to 0)
 
-	# allocate 4 bytes for base address of updated[]
-	li		$a0, 4		# $a0 = 4 (allocate for 4 bytes)
+	# allocate space for updated[]
+	li		$t0, 4		# $t0 = 4
+	mult	$t0, $s2			# $t0 * $s2 = Hi and Lo registers
+	mflo	$a0					# copy Lo to $a0 ($a0 = amount of space to allocate on heap for array)
 	li		$v0, 9		# $v0 = 9
 	syscall
 	move 	$t3, $v0		# $t3 = $v0 (save newly allocated memory buffer as base address of updated[])
@@ -244,6 +246,7 @@ get_Nth_term:
 
 	li		$t0, 1		# $t0 = 1 (current_node_number)
 	lw		$t1, 0($s0)		# set current_node to head
+	beqz $t1, term_dne		# if p is null return this term_dne since the polynomial is empty 
 	while_current_node_not_N:
 		beq		$t0, $s1, return_this_node	# if $t0 == $s1 then return_this_node (if current_node_number == N then break)
 		addi	$t0, $t0, 1			# $t0 = $t0 + 1 (current_node_number++)
@@ -356,7 +359,7 @@ add_poly:
 
 	create_terms_array:
 		# allocate space on the heap for base address of terms[]
-		li		$a0, 0xFFFF		# $a0 = 4 (allocate for 4 bytes)
+		li		$a0, 0xFFFF
 		li		$v0, 9		# $v0 = 9
 		syscall
 		move 	$s5, $v0		# $s5 = $v0 (save base address of terms[])
@@ -470,13 +473,11 @@ add_poly:
 		addi	$s5, $s5, 8			# $s5 = $s5 + 8	(increment base address of terms[])
 		addi	$s7, $s7, -1			# $s7 = $s7 + -1 (decrement number of terms in terms[])
 		
-		
 		# add terms in terms[] to r	
 		move 	$a0, $s2		# $a0 = $s2 (pass r)
 		move 	$a1, $s5		# $a1 = $s5 (pass base address of terms[]				
 		move 	$a2, $s7		# $a2 = $s7 (pass number of terms in terms[])
 		jal		add_N_terms_to_polynomial				# jump to add_N_terms_to_polynomial and save position to $ra
-		beqz $v0, add_failure		# if return value is 0 then add_failure
 		li		$v0, 1		# $v0 = 1 (add was successful so return 1)
 		j		return_add_poly				# jump to return_add_poly
 			
@@ -497,6 +498,185 @@ add_poly:
 		jr $ra
 
 mult_poly:
-	jr $ra
+	addi	$sp, $sp, -36			# $sp = $sp + -36
+	sw		$s0, 0($sp)		# p
+	sw		$s1, 4($sp)		# q
+	sw		$s2, 8($sp)		# r
+	sw		$s3, 12($sp)		# N.p
+	sw		$s4, 16($sp)		# N.q
+	sw		$s5, 20($sp)		# base address of terms[]
+	sw		$s6, 24($sp)		# pointer for terms[]
+	sw		$s7, 28($sp)		# No. of terms in terms[]
+	sw		$ra, 32($sp)		# save return address
 
+	# save arguments
+	move 	$s0, $a0		# $s0 = $a0 (save p)
+	move 	$s1, $a1		# $s1 = $a1 (save q)
+	move 	$s2, $a2		# $s2 = $a2 (save r)
 
+	# allocate space on the heap for base address of terms[]
+	li		$a0, 0xFFFF
+	li		$v0, 9		# $v0 = 9
+	syscall
+	move 	$s5, $v0		# $s5 = $v0 (save base address of terms[])
+	move 	$s6, $s5		# $s7 = $s5 (copy base address of terms[] for pointer)
+	# intitalize terms[] to [0, -1]
+	sw		$0, 0($s5)
+	li		$t0, -1		# $t0 = -1
+	sw		$t0, 4($s5)
+
+	# start off at first term in p 
+	li		$s3, 1		# $s3 = 1 (int N.p = 0)
+
+	# check to see if p is empty
+	move 	$a0, $s0		# $a0 = $s0 (pass p) 
+	move 	$a1, $s3		# $a1 = $s3 (pass N.p)
+	jal		get_Nth_term				# jump to get_Nth_term and save position to $ra
+	beqz $v1, empty	# if p is empty then check to see if q is empty
+
+	# check to see if q is empty
+	move 	$a0, $s1		# $a0 = $s0 (pass q)
+	move 	$a1, $s3		# $a1 = $s3 (pass N.p)
+	jal		get_Nth_term				# jump to get_Nth_term and save position to $ra
+	beqz $v1, while_p_not_null
+	j		for_term_in_p				# else jump to for_term_in_p
+
+	empty:
+		# check to see if q is also empty
+		move 	$a0, $s1		# $a0 = $s1 (pass q)
+		move 	$a1, $s3		# $a1 = $s3 (pass N.p)
+		jal		get_Nth_term			# jump to get_Nth_term and save position to $ra
+		beqz $v1, mult_failure	# if q is also empty then mult_failure
+		# else set r to be every term in q 
+		while_q_not_null:
+			move 	$a0, $s1		# $a0 = $s1 (pass q)
+			move 	$a1, $s3		# $a1 = $s3 (pass N)
+			jal		get_Nth_term				# jump to get_Nth_term and save position to $ra
+			beqz $v1, add_terms		# if we've reached end of q then add terms to r 
+			sw		$v1, 0($s6)		# add coeff to terms[]
+			sw		$v0, 4($s6)		# add exp to terms[]
+			# set end of terms[] to be [0,-1]
+			li		$t0, -1		# $t0 = -1
+			sw		$0, 8($s6)
+			sw		$t0, 12($s6)
+			addi	$s6, $s6, 8			# $s6 = $s6 + 8 (update terms[] pointer)
+			addi	$s3, $s3, 1			# $s3 = $s3 + 1 (increment N)
+			addi	$s7, $s7, 1			# $s7 = $s7 + 1 (increment no. of terms)
+			j		while_q_not_null				# jump to while_q_not_null
+
+	while_p_not_null:
+		move 	$a0, $s0		# $a0 = $s0 (pass p)
+		move 	$a1, $s3		# $a1 = $s3 (pass N)
+		jal		get_Nth_term				# jump to get_Nth_term and save position to $ra
+		beqz $v1, add_terms		# if we've reached the end of q then add terms to r
+		sw		$v1, 0($s6)		# add coeff to terms[]
+		sw		$v0, 4($s6)		# add exp to terms[]
+		# set end of terms[] to be [0,-1]
+		li		$t0, -1		# $t0 = -1
+		sw		$0, 8($s6)
+		sw		$t0, 12($s6)
+		addi	$s6, $s6, 8			# $s6 = $s6 + 8 (update terms[] pointer)
+		addi	$s3, $s3, 1			# $s3 = $s3 + 1 (increment N)
+		addi	$s7, $s7, 1			# $s7 = $s7 + 1 (increment no. of terms)
+		j		while_p_not_null				# jump to while_p_not_null
+		
+	for_term_in_p:
+		# get term from p
+		move 	$a0, $s0		# $a0 = $s0 (pass p) 
+		move 	$a1, $s3		# $a1 = $s3 (pass N.p)
+		jal		get_Nth_term				# jump to get_Nth_term and save position to $ra
+		beqz $v1, add_terms		# check to see if we have reached the end of p
+		
+		# start off at first term in q
+		li		$s4, 1		# $s4 = 1 (N.q = 1)
+		for_term_in_q:
+			# get term from q
+			move 	$a0, $s1		# $a0 = $s1 (pass q)
+			move 	$a1, $s4		# $a1 = $s3 (pass N.q)
+			jal		get_Nth_term				# jump to get_Nth_term and save position to $ra
+			beqz $v1, get_next_term_in_p		# check to see if we have reached the end of q
+
+			addi	$sp, $sp, -8			# $sp = $sp + -8
+			sw		$v0, 0($sp)		# save q.exp
+			sw		$v1, 4($sp)		# save q.coeff
+
+			# get term from p
+			move 	$a0, $s0		# $a0 = $s0 (pass p)
+			move 	$a1, $s3		# $a1 = $s3 (pass N.p)
+			jal		get_Nth_term				# jump to get_Nth_term and save position to $ra
+
+			lw		$t0, 0($sp)		# load q.exp
+			lw		$t1, 4($sp)		# load q.coeff
+			addi	$sp, $sp, 8			# $sp = $sp + 8
+			
+			# add both exps to get new_exp
+			add		$t0, $t0, $v0		# $t0 = $t0 + $v0 (new_exp = q.exp + p.exp)
+			# new_coeff = p.coeff * q.coeff
+			mult	$t1, $v1			# $t1 * $v1 = Hi and Lo registers (q.coeff * p.coeff)
+			mflo	$t1					# copy Lo to $t1 ($t1 = new_coeff)
+
+			move 	$t2, $s5		# $t2 = $s5 (copy base address of terms[])
+			for_term_in_r:
+				# search for newly created exp in terms[]
+				lw		$t3, 4($t2)		# load exp from terms[]
+				bltz $t3, add_new_term_to_terms		# if we have reached the end of terms[] then add new term to terms[]
+				beq		$t0, $t3, update_coeff	# if $t0 == $t3 then update_coeff
+				addi	$t2, $t2, 8			# $t2 = $t2 + 8 (increment terms[] pointer)
+				j		for_term_in_r				# jump to for_term_in_r
+
+			update_coeff:
+				lw		$t3, 0($t2)		# load coeff from terms[]
+				add		$t3, $t3, $t1		# $t3 = $t3 + $t1 (add both coeffs)
+				sw		$t3, 0($t2)		# store updated coeff in terms[]
+				addi	$s4, $s4, 1			# $s4 = $s4 + 1 (N.q++)
+				j		for_term_in_q				# jump to for_term_in_q
+				
+			add_new_term_to_terms:
+				sw		$t1, 0($s6)		# insert new coeff
+				sw		$t0, 4($s6)		# insert new exp
+				addi	$s7, $s7, 1			# $s7 = $s7 + 1 (increment No. of terms in terms[])
+				
+				# set [0, -1] as end of terms[]
+				sw		$0, 8($s6)
+				li		$t0, -1		# $t0 = -1	
+				sw		$t0, 12($s6) 
+				addi	$s6, $s6, 8			# $s6 = $s6 + 8 (update pointer for terms[])
+				addi	$s4, $s4, 1			# $s4 = $s4 + 1 (N.q++)
+				j		for_term_in_q				# jump to for_term_in_q
+				
+			get_next_term_in_p:
+				addi	$s3, $s3, 1			# $s3 = $s3 + 1 (N.p++)
+				j		for_term_in_p				# jump to for_term_in_p
+
+	add_terms:
+		# init r
+		move 	$a0, $s2		# $a0 = $s2 (pass r)
+		move 	$a1, $s5		# $a1 = $s5 (pass base addess of terms[]
+		jal		init_polynomial				# jump to init_polynomial and save position to $ra
+		bltz $v0, mult_failure		# if return value is less than 0 then return mult_failure
+		addi	$s5, $s5, 8			# $s5 = $s5 + 8 (increment base address of terms[])
+		addi	$s7, $s7, -1			# $s7 = $s7 + -1 (decrement No. of terms in terms[])
+
+		# add terms in terms[] to r
+		move 	$a0, $s2		# $a0 = $s2 (pass r)
+		move 	$a1, $s5		# $a1 = $s5 (pass base address of terms[])
+		move 	$a2, $s7		# $a2 = $s7 (pass No. of terms in terms[])
+		jal		add_N_terms_to_polynomial				# jump to add_N_terms_to_polynomial and save position to $ra
+		li		$v0, 1		# $v0 = 1 (multiplication was successful so return 1)
+		j		return_mult_poly				# jump to return_mult_poly
+
+	mult_failure:
+		li		$v0, 0		# $v0 = 0
+		
+	return_mult_poly:
+		lw		$s0, 0($sp)
+		lw		$s1, 4($sp)
+		lw		$s2, 8($sp)
+		lw		$s3, 12($sp)
+		lw		$s4, 16($sp)
+		lw		$s5, 20($sp)
+		lw		$s6, 24($sp)
+		lw		$s7, 28($sp)
+		lw		$ra, 32($sp)
+		addi	$sp, $sp, 36			# $sp = $sp + 36
+		jr $ra
